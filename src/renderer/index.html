@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';">
+  <title>E-Shop PDV</title>
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-screen" class="screen active">
+    <div class="login-container">
+      <div class="login-header">
+        <h1>🐾 E-Shop PDV</h1>
+        <p>Sistema de Gestão e Ponto de Venda</p>
+      </div>
+      <form id="login-form" class="login-form">
+        <div class="form-group">
+          <label for="username">Usuário</label>
+          <input type="text" id="username" name="username" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="password">Senha</label>
+          <input type="password" id="password" name="password" required autocomplete="current-password">
+        </div>
+        <div id="login-error" class="error-message"></div>
+        <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="app-screen" class="screen">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h2>🐾 E-Shop</h2>
+      </div>
+      <ul class="nav-menu">
+        <li class="nav-item active" data-page="dashboard">
+          <span class="nav-icon">📊</span>
+          <span class="nav-text">Dashboard</span>
+        </li>
+        <li class="nav-item" data-page="pos">
+          <span class="nav-icon">🛒</span>
+          <span class="nav-text">Caixa (POS)</span>
+        </li>
+        <li class="nav-item" data-page="products">
+          <span class="nav-icon">📦</span>
+          <span class="nav-text">Produtos</span>
+        </li>
+        <li class="nav-item" data-page="categories">
+          <span class="nav-icon">📋</span>
+          <span class="nav-text">Categorias</span>
+        </li>
+        <li class="nav-item" data-page="reports">
+          <span class="nav-icon">📈</span>
+          <span class="nav-text">Relatórios</span>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <button id="logout-btn" class="btn btn-danger btn-block">Sair</button>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Dashboard Page -->
+      <div id="dashboard-page" class="page active">
+        <h1>Dashboard</h1>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-info">
+              <h3>Vendas Hoje</h3>
+              <p id="today-revenue" class="stat-value">R$ 0,00</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🛒</div>
+            <div class="stat-info">
+              <h3>Transações Hoje</h3>
+              <p id="today-sales-count" class="stat-value">0</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-info">
+              <h3>Produtos Cadastrados</h3>
+              <p id="total-products" class="stat-value">0</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-info">
+              <h3>Estoque Baixo</h3>
+              <p id="low-stock-count" class="stat-value">0</p>
+            </div>
+          </div>
+        </div>
+        <div class="recent-sales">
+          <h2>Vendas Recentes</h2>
+          <table id="recent-sales-table" class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Itens</th>
+                <th>Total</th>
+                <th>Pagamento</th>
+                <th>Hora</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- POS Page -->
+      <div id="pos-page" class="page">
+        <div class="pos-layout">
+          <div class="pos-products">
+            <h2>Produtos</h2>
+            <div class="pos-search">
+              <input type="text" id="pos-search" placeholder="Buscar produto ou escanear código de barras..." class="search-input">
+              <select id="pos-category-filter" class="filter-select">
+                <option value="">Todas categorias</option>
+              </select>
+            </div>
+            <div id="pos-products-grid" class="products-grid"></div>
+          </div>
+          <div class="pos-cart">
+            <h2>Carrinho</h2>
+            <div id="cart-items" class="cart-items"></div>
+            <div class="cart-summary">
+              <div class="cart-total">
+                <span>Total:</span>
+                <span id="cart-total-value" class="total-value">R$ 0,00</span>
+              </div>
+              <div class="payment-method">
+                <select id="payment-method" class="payment-select">
+                  <option value="cash">Dinheiro</option>
+                  <option value="credit">Cartão de Crédito</option>
+                  <option value="debit">Cartão de Débito</option>
+                  <option value="pix">PIX</option>
+                </select>
+              </div>
+              <button id="checkout-btn" class="btn btn-success btn-block">Finalizar Venda</button>
+              <button id="clear-cart-btn" class="btn btn-danger btn-block">Limpar Carrinho</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Products Page -->
+      <div id="products-page" class="page">
+        <div class="page-header">
+          <h1>Produtos</h1>
+          <button id="add-product-btn" class="btn btn-primary">+ Novo Produto</button>
+        </div>
+        <div class="search-bar">
+          <input type="text" id="product-search" placeholder="Buscar produtos..." class="search-input">
+        </div>
+        <table id="products-table" class="data-table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Nome</th>
+              <th>Categoria</th>
+              <th>Preço</th>
+              <th>Estoque</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- Categories Page -->
+      <div id="categories-page" class="page">
+        <div class="page-header">
+          <h1>Categorias</h1>
+          <button id="add-category-btn" class="btn btn-primary">+ Nova Categoria</button>
+        </div>
+        <table id="categories-table" class="data-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Descrição</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- Reports Page -->
+      <div id="reports-page" class="page">
+        <h1>Relatórios de Vendas</h1>
+        <div class="report-filters">
+          <div class="form-group">
+            <label>Data Início</label>
+            <input type="date" id="report-start-date" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Data Fim</label>
+            <input type="date" id="report-end-date" class="form-control">
+          </div>
+          <button id="generate-report-btn" class="btn btn-primary">Gerar Relatório</button>
+        </div>
+        <div id="report-results" class="report-results">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-info">
+                <h3>Total de Vendas</h3>
+                <p id="report-total-sales" class="stat-value">0</p>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-info">
+                <h3>Receita Total</h3>
+                <p id="report-total-revenue" class="stat-value">R$ 0,00</p>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-info">
+                <h3>Média Diária</h3>
+                <p id="report-daily-average" class="stat-value">R$ 0,00</p>
+              </div>
+            </div>
+          </div>
+          <h2>Produtos Mais Vendidos</h2>
+          <table id="top-products-table" class="data-table">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Quantidade</th>
+                <th>Receita</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Product Modal -->
+  <div id="product-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="product-modal-title">Novo Produto</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="product-form" class="modal-form">
+        <input type="hidden" id="product-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="product-sku">SKU</label>
+            <input type="text" id="product-sku" required>
+          </div>
+          <div class="form-group">
+            <label for="product-name">Nome</label>
+            <input type="text" id="product-name" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="product-category">Categoria</label>
+            <select id="product-category" required></select>
+          </div>
+          <div class="form-group">
+            <label for="product-price">Preço</label>
+            <input type="number" id="product-price" step="0.01" min="0" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="product-stock">Estoque</label>
+            <input type="number" id="product-stock" min="0" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Metadados (JSON)</label>
+          <textarea id="product-data" rows="4" placeholder='{"weight": 1.5, "flavor": "frango"}'></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Category Modal -->
+  <div id="category-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="category-modal-title">Nova Categoria</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="category-form" class="modal-form">
+        <input type="hidden" id="category-id">
+        <div class="form-group">
+          <label for="category-name">Nome</label>
+          <input type="text" id="category-name" required>
+        </div>
+        <div class="form-group">
+          <label for="category-description">Descrição</label>
+          <textarea id="category-description" rows="3"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
