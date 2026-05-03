@@ -920,3 +920,53 @@ body {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* --- Badges --- */
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.badge-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.badge-info {
+  background: var(--info);
+  color: white;
+}
+
+.badge-success {
+  background: var(--success);
+  color: white;
+}
+
+.badge-warning {
+  background: var(--warning);
+  color: white;
+}
+
+.badge-danger {
+  background: var(--danger);
+  color: white;
+}
+
+/* --- Admin-only elements --- */
+.admin-only {
+  /* Shown/hidden via JS based on user role */
+}
+
+.text-muted {
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}

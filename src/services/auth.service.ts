@@ -54,11 +54,43 @@ export class AuthService {
 
     const existing = this.db.prepare('SELECT id FROM admin_users WHERE username = ?').get('admin');
     if (existing) {
-      this.db.prepare('UPDATE admin_users SET password_hash = ? WHERE username = ?').run(hash, 'admin');
+      this.db.prepare('UPDATE admin_users SET password_hash = ?, role = ? WHERE username = ?').run(hash, 'admin', 'admin');
       return { success: true, message: 'Senha do admin redefinida para: admin123' };
     } else {
-      this.db.prepare('INSERT INTO admin_users (username, password_hash) VALUES (?, ?)').run('admin', hash);
+      this.db.prepare('INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)').run('admin', hash, 'admin');
       return { success: true, message: 'Usuário admin criado. Senha: admin123' };
     }
+  }
+
+  public createCashierUser(username: string, password: string): { success: boolean; message: string } {
+    const existing = this.db.prepare('SELECT id FROM admin_users WHERE username = ?').get(username);
+    if (existing) {
+      return { success: false, message: 'Nome de usuário já existe' };
+    }
+
+    const salt = bcrypt.genSaltSync(10);
+    const hash = bcrypt.hashSync(password, salt);
+    this.db.prepare('INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)').run(username, hash, 'caixa');
+    return { success: true, message: `Usuário caixa '${username}' criado com sucesso` };
+  }
+
+  public listUsers(): Omit<AdminUser, 'password_hash'>[] {
+    const users = this.db.prepare('SELECT id, username, role, created_at FROM admin_users ORDER BY role, username').all() as Omit<AdminUser, 'password_hash'>[];
+    return users;
+  }
+
+  public deleteUser(userId: number): { success: boolean; message: string } {
+    const user = this.db.prepare('SELECT * FROM admin_users WHERE id = ?').get(userId) as AdminUser | undefined;
+    if (!user) {
+      return { success: false, message: 'Usuário não encontrado' };
+    }
+    if (user.role === 'admin') {
+      const adminCount = this.db.prepare('SELECT COUNT(*) as count FROM admin_users WHERE role = ?').get('admin') as { count: number };
+      if (adminCount.count <= 1) {
+        return { success: false, message: 'Não é possível remover o último administrador' };
+      }
+    }
+    this.db.prepare('DELETE FROM admin_users WHERE id = ?').run(userId);
+    return { success: true, message: 'Usuário removido com sucesso' };
   }
 }

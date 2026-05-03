@@ -53,6 +53,18 @@ function setupIPC() {
     return authService.resetAdminUser();
   });
 
+  ipcMain.handle('auth:createCashier', async (_event, username: string, password: string) => {
+    return authService.createCashierUser(username, password);
+  });
+
+  ipcMain.handle('auth:listUsers', async () => {
+    return authService.listUsers();
+  });
+
+  ipcMain.handle('auth:deleteUser', async (_event, userId: number) => {
+    return authService.deleteUser(userId);
+  });
+
   // Products
   ipcMain.handle('product:findAll', async () => {
     return productService.findAll();

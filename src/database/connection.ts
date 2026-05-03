@@ -82,15 +82,23 @@ export async function runMigrations(): Promise<void> {
     )
   `);
 
-  // Create admin_users table
+  // Create admin_users table with role
   db.exec(`
     CREATE TABLE IF NOT EXISTS admin_users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'caixa',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migrate existing users: add role column if missing
+  try {
+    db.exec(`ALTER TABLE admin_users ADD COLUMN role TEXT NOT NULL DEFAULT 'caixa'`);
+  } catch (e) {
+    // Column already exists
+  }
 
   // Binary indexes for critical fields (high performance)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku)`);
@@ -106,7 +114,7 @@ export async function runMigrations(): Promise<void> {
   if (adminExists.count === 0) {
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash('admin123', salt);
-    db.prepare('INSERT INTO admin_users (username, password_hash) VALUES (?, ?)').run('admin', hash);
+    db.prepare('INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)').run('admin', hash, 'admin');
   }
 
   // Seed default categories for Pet Shop

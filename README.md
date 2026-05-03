@@ -357,5 +357,3 @@ NODE_ENV=production   # Modo produção
 Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
 
 ---
-
-**Desenvolvido com ❤️ para o varejo brasileiro.**

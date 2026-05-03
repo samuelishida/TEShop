@@ -66,9 +66,12 @@ export interface LoginRequest {
   password: string;
 }
 
+export type UserRole = 'admin' | 'caixa';
+
 export interface AdminUser {
   id: number;
   username: string;
   password_hash: string;
+  role: UserRole;
   created_at: string;
 }

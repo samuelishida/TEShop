@@ -38,7 +38,7 @@
         <h2>🐾 E-Shop</h2>
       </div>
       <ul class="nav-menu">
-        <li class="nav-item active" data-page="dashboard">
+        <li class="nav-item admin-only active" data-page="dashboard">
           <span class="nav-icon">📊</span>
           <span class="nav-text">Dashboard</span>
         </li>
@@ -46,17 +46,21 @@
           <span class="nav-icon">🛒</span>
           <span class="nav-text">Caixa (POS)</span>
         </li>
-        <li class="nav-item" data-page="products">
+        <li class="nav-item admin-only" data-page="products">
           <span class="nav-icon">📦</span>
           <span class="nav-text">Produtos</span>
         </li>
-        <li class="nav-item" data-page="categories">
+        <li class="nav-item admin-only" data-page="categories">
           <span class="nav-icon">📋</span>
           <span class="nav-text">Categorias</span>
         </li>
-        <li class="nav-item" data-page="reports">
+        <li class="nav-item admin-only" data-page="reports">
           <span class="nav-icon">📈</span>
           <span class="nav-text">Relatórios</span>
+        </li>
+        <li class="nav-item admin-only" data-page="users">
+          <span class="nav-icon">👥</span>
+          <span class="nav-text">Usuários</span>
         </li>
       </ul>
       <div class="sidebar-footer">
@@ -242,7 +246,49 @@
           </table>
         </div>
       </div>
+      <!-- Users Page (Admin Only) -->
+      <div id="users-page" class="page">
+        <div class="page-header">
+          <h1>Gerenciar Usuários</h1>
+          <button id="add-user-btn" class="btn btn-primary">+ Novo Usuário</button>
+        </div>
+        <table id="users-table" class="data-table">
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th>Função</th>
+              <th>Criado em</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </main>
+  </div>
+
+  <!-- User Modal -->
+  <div id="user-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Novo Usuário (Caixa)</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="user-form" class="modal-form">
+        <div class="form-group">
+          <label for="new-username">Nome de Usuário</label>
+          <input type="text" id="new-username" required autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="new-password">Senha</label>
+          <input type="password" id="new-password" required autocomplete="new-password">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Criar Usuário</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Product Modal -->

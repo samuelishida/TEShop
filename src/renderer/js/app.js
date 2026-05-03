@@ -274,6 +274,9 @@ export const Navigation = {
       case 'reports':
         Reports.setDefaultDates();
         break;
+      case 'users':
+        Users.load();
+        break;
     }
   },
 };
@@ -308,6 +311,17 @@ export const Auth = {
   showApp() {
     document.getElementById('login-screen').classList.remove('active');
     document.getElementById('app-screen').classList.add('active');
+
+    // Role-based UI: show/hide admin-only elements
+    const isAdmin = this.currentUser && this.currentUser.role === 'admin';
+    document.querySelectorAll('.admin-only').forEach(el => {
+      el.style.display = isAdmin ? '' : 'none';
+    });
+
+    // If cashier, force POS page
+    if (!isAdmin) {
+      Navigation.goTo('pos');
+    }
   },
 
   logout() {
@@ -893,6 +907,101 @@ export const Reports = {
   },
 };
 
+// --- Users Manager (Admin Only) ---
+export const Users = {
+  async init() {
+    document.getElementById('add-user-btn').addEventListener('click', () => {
+      Modal.open('user-modal');
+    });
+
+    document.getElementById('user-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.createUser();
+    });
+
+    document.querySelector('#user-modal .modal-close').addEventListener('click', () => {
+      Modal.close('user-modal');
+    });
+    document.querySelector('#user-modal .modal-cancel').addEventListener('click', () => {
+      Modal.close('user-modal');
+    });
+  },
+
+  async load() {
+    try {
+      const users = await window.electronAPI.listUsers();
+      this.renderTable(users);
+    } catch (error) {
+      console.error('Load users error:', error);
+      Toast.error('Erro ao carregar usuários');
+    }
+  },
+
+  renderTable(users) {
+    const tbody = document.querySelector('#users-table tbody');
+    if (users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Nenhum usuário encontrado</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = users.map(user => `
+      <tr>
+        <td>${user.username}</td>
+        <td><span class="badge ${user.role === 'admin' ? 'badge-primary' : 'badge-info'}">${user.role === 'admin' ? 'Administrador' : 'Caixa'}</span></td>
+        <td>${Utils.formatDate(user.created_at)}</td>
+        <td>
+          ${user.role !== 'admin' ? `<button class="btn btn-sm btn-danger" onclick="Users.deleteUser(${user.id}, '${user.username}')">🗑️ Remover</button>` : '<span class="text-muted">—</span>'}
+        </td>
+      </tr>
+    `).join('');
+  },
+
+  async createUser() {
+    const username = document.getElementById('new-username').value.trim();
+    const password = document.getElementById('new-password').value;
+
+    if (!username || !password) {
+      Toast.warning('Preencha todos os campos');
+      return;
+    }
+
+    if (password.length < 4) {
+      Toast.warning('A senha deve ter pelo menos 4 caracteres');
+      return;
+    }
+
+    try {
+      const result = await window.electronAPI.createCashierUser(username, password);
+      if (result.success) {
+        Toast.success(result.message);
+        Modal.close('user-modal');
+        document.getElementById('user-form').reset();
+        await this.load();
+      } else {
+        Toast.error(result.message);
+      }
+    } catch (error) {
+      Toast.error('Erro ao criar usuário');
+    }
+  },
+
+  async deleteUser(userId, username) {
+    if (!confirm(`Tem certeza que deseja remover o usuário "${username}"?`)) return;
+
+    try {
+      const result = await window.electronAPI.deleteUser(userId);
+      if (result.success) {
+        Toast.success(result.message);
+        await this.load();
+      } else {
+        Toast.error(result.message);
+      }
+    } catch (error) {
+      Toast.error('Erro ao remover usuário');
+    }
+  },
+};
+
 // --- App Initialization ---
 export const App = {
   async init() {
@@ -924,6 +1033,7 @@ export const App = {
     Products.init();
     Categories.init();
     Reports.init();
+    Users.init();
 
     // Close modals on overlay click
     document.querySelectorAll('.modal-overlay, .modal').forEach(modal => {
@@ -952,6 +1062,7 @@ window.POS = POS;
 window.Products = Products;
 window.Categories = Categories;
 window.Reports = Reports;
+window.Users = Users;
 window.Modal = Modal;
 window.App = App;
 

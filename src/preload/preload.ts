@@ -12,6 +12,10 @@ try {
     login: (credentials: { username: string; password: string }) => 
       ipcRenderer.invoke('auth:login', credentials),
     resetAdminUser: () => ipcRenderer.invoke('auth:resetAdmin'),
+    createCashierUser: (username: string, password: string) => 
+      ipcRenderer.invoke('auth:createCashier', username, password),
+    listUsers: () => ipcRenderer.invoke('auth:listUsers'),
+    deleteUser: (userId: number) => ipcRenderer.invoke('auth:deleteUser', userId),
 
   // Products
   findAllProducts: () => ipcRenderer.invoke('product:findAll'),
