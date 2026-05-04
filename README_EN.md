@@ -1,6 +1,10 @@
 # 🐾 E-Shop PDV
 
-Modular POS (Point of Sale) and Inventory Management system, initially configured for a Pet Shop, but with generic architecture for any retail business.
+Modular POS (Point of Sale) and Inventory Management system for any retail business.
+
+> **Stack:** Electron 41 · SQLite (better-sqlite3) · TypeScript strict · Vite 6 · Vitest 3 · Zod 4
+
+> **v2.0** — Auth middleware on all endpoints, sale cancellation, authenticated sync, strict CSP, structured logging.
 
 ## 📋 Table of Contents
 
@@ -30,8 +34,11 @@ Modular POS (Point of Sale) and Inventory Management system, initially configure
 
 ### 🔐 Admin Dashboard
 - Password protection with bcrypt hashing
+- **Auth middleware on all IPC handlers** — token validated before every operation
+- **Session validation on restore** — expired/revoked tokens rejected at frontend
 - Complete product CRUD with JSONB metadata
 - Hierarchical category management
+- **Sale cancellation** with automatic stock restoration
 - Sales reports visualization
 - Real-time indicators (today's sales, low stock, etc.)
 
@@ -147,6 +154,8 @@ The project uses **Vitest** for unit testing. Tests cover:
 - ✅ Sales reports
 - ✅ bcrypt authentication
 - ✅ Extensible metadata (Pet Shop, Clothing, Electronics)
+- ✅ Sale cancellation with stock restoration
+- ✅ Auth middleware on all protected endpoints
 
 ```bash
 # Run all tests

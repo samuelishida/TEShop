@@ -2,6 +2,19 @@ import Database from 'better-sqlite3';
 import { DatabaseManager } from '../database/connection';
 import { Category } from '../types';
 
+export interface PaginationOptions {
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 export class CategoryService {
   private db: Database.Database;
 
@@ -9,9 +22,18 @@ export class CategoryService {
     this.db = DatabaseManager.getInstance();
   }
 
-  public findAll(): Category[] {
-    const stmt = this.db.prepare('SELECT * FROM categories ORDER BY name');
-    return stmt.all() as unknown as Category[];
+  public findAll(options: PaginationOptions = {}): PaginatedResult<Category> {
+    const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
+    const offset = Math.max(options.offset ?? 0, 0);
+
+    const total = (this.db.prepare('SELECT COUNT(*) as total FROM categories').get() as { total: number }).total;
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM categories ORDER BY name LIMIT ? OFFSET ?
+    `);
+    const items = stmt.all(limit, offset) as unknown as Category[];
+
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
   }
 
   public findById(id: number): Category | undefined {
@@ -24,7 +46,7 @@ export class CategoryService {
       INSERT INTO categories (name, description, parent_id)
       VALUES (?, ?, ?)
     `);
-    
+
     const info = stmt.run(category.name, category.description, category.parent_id);
     return this.findById(info.lastInsertRowid as number) as Category;
   }
@@ -54,7 +76,7 @@ export class CategoryService {
 
     const stmt = this.db.prepare(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?`);
     stmt.run(...values);
-    
+
     return this.findById(id);
   }
 

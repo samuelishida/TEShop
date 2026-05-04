@@ -2,6 +2,19 @@ import Database from 'better-sqlite3';
 import { DatabaseManager } from '../database/connection';
 import { Product, ProductMetadata, Category, Sale, SaleItem, SaleReport } from '../types';
 
+export interface PaginationOptions {
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 export class ProductService {
   private db: Database.Database;
 
@@ -20,18 +33,27 @@ export class ProductService {
     return rows.map(row => this.parseProduct(row));
   }
 
-  public findAll(): Product[] {
+  public findAll(options: PaginationOptions = {}): PaginatedResult<Product> {
+    const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
+    const offset = Math.max(options.offset ?? 0, 0);
+
+    const countStmt = this.db.prepare('SELECT COUNT(*) as total FROM products');
+    const total = (countStmt.get() as { total: number }).total;
+
     const stmt = this.db.prepare(`
-      SELECT p.*, json(p.data) as data 
-      FROM products p 
+      SELECT p.*, json(p.data) as data
+      FROM products p
       ORDER BY p.name
+      LIMIT ? OFFSET ?
     `);
-    return this.parseProducts(stmt.all() as any[]);
+    const items = this.parseProducts(stmt.all(limit, offset) as any[]);
+
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
   }
 
   public findById(id: number): Product | undefined {
     const stmt = this.db.prepare(`
-      SELECT *, json(data) as data 
+      SELECT *, json(data) as data
       FROM products WHERE id = ?
     `);
     const product = stmt.get(id);
@@ -40,31 +62,51 @@ export class ProductService {
 
   public findBySku(sku: string): Product | undefined {
     const stmt = this.db.prepare(`
-      SELECT *, json(data) as data 
+      SELECT *, json(data) as data
       FROM products WHERE sku = ?
     `);
     const product = stmt.get(sku);
     return product ? this.parseProduct(product) : undefined;
   }
 
-  public findByCategory(categoryId: number): Product[] {
+  public findByCategory(categoryId: number, options: PaginationOptions = {}): PaginatedResult<Product> {
+    const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
+    const offset = Math.max(options.offset ?? 0, 0);
+
+    const countStmt = this.db.prepare('SELECT COUNT(*) as total FROM products WHERE category_id = ?');
+    const total = (countStmt.get(categoryId) as { total: number }).total;
+
     const stmt = this.db.prepare(`
-      SELECT *, json(data) as data 
+      SELECT *, json(data) as data
       FROM products WHERE category_id = ?
       ORDER BY name
+      LIMIT ? OFFSET ?
     `);
-    return this.parseProducts(stmt.all(categoryId) as any[]);
+    const items = this.parseProducts(stmt.all(categoryId, limit, offset) as any[]);
+
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
   }
 
-  public search(query: string): Product[] {
+  public search(query: string, options: PaginationOptions = {}): PaginatedResult<Product> {
+    const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
+    const offset = Math.max(options.offset ?? 0, 0);
+    const searchQuery = `%${query}%`;
+
+    const countStmt = this.db.prepare(`
+      SELECT COUNT(*) as total FROM products WHERE name LIKE ? OR sku LIKE ?
+    `);
+    const total = (countStmt.get(searchQuery, searchQuery) as { total: number }).total;
+
     const stmt = this.db.prepare(`
-      SELECT *, json(data) as data 
-      FROM products 
+      SELECT *, json(data) as data
+      FROM products
       WHERE name LIKE ? OR sku LIKE ?
       ORDER BY name
+      LIMIT ? OFFSET ?
     `);
-    const searchQuery = `%${query}%`;
-    return this.parseProducts(stmt.all(searchQuery, searchQuery) as any[]);
+    const items = this.parseProducts(stmt.all(searchQuery, searchQuery, limit, offset) as any[]);
+
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
   }
 
   public create(product: Omit<Product, 'id' | 'created_at' | 'updated_at'>): Product {
@@ -72,7 +114,7 @@ export class ProductService {
       INSERT INTO products (sku, name, category_id, price, stock, data)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
-    
+
     const info = stmt.run(
       product.sku,
       product.name,
@@ -81,7 +123,7 @@ export class ProductService {
       product.stock,
       JSON.stringify(product.data)
     );
-    
+
     return this.findById(info.lastInsertRowid as number) as Product;
   }
 
@@ -114,7 +156,7 @@ export class ProductService {
       values.push(JSON.stringify(updates.data));
     }
 
-    fields.push("updated_at = CURRENT_TIMESTAMP");
+    fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(id);
 
     if (fields.length === 1) {
@@ -123,7 +165,7 @@ export class ProductService {
 
     const stmt = this.db.prepare(`UPDATE products SET ${fields.join(', ')} WHERE id = ?`);
     stmt.run(...values);
-    
+
     return this.findById(id);
   }
 
@@ -135,8 +177,8 @@ export class ProductService {
 
   public updateStock(productId: number, quantityChange: number): boolean {
     const stmt = this.db.prepare(`
-      UPDATE products 
-      SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP 
+      UPDATE products
+      SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND stock + ? >= 0
     `);
     const result = stmt.run(quantityChange, productId, quantityChange);
@@ -145,7 +187,7 @@ export class ProductService {
 
   public getLowStock(threshold: number = 10): Product[] {
     const stmt = this.db.prepare(`
-      SELECT *, json(data) as data 
+      SELECT *, json(data) as data
       FROM products WHERE stock <= ? AND stock > 0
       ORDER BY stock ASC
     `);
@@ -154,7 +196,7 @@ export class ProductService {
 
   public getOutOfStock(): Product[] {
     const stmt = this.db.prepare(`
-      SELECT *, json(data) as data 
+      SELECT *, json(data) as data
       FROM products WHERE stock = 0
     `);
     return this.parseProducts(stmt.all() as any[]);

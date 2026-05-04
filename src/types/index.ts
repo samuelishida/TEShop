@@ -23,10 +23,10 @@ export interface Product {
   id: number;
   sku: string;
   name: string;
-  category_id: number;
+  category_id?: number | null;
   price: number;
   stock: number;
-  data: ProductMetadata;
+  data: ProductMetadata | null;
   created_at: string;
   updated_at: string;
 }
@@ -35,7 +35,7 @@ export interface Category {
   id: number;
   name: string;
   description?: string;
-  parent_id?: number;
+  parent_id?: number | null;
   created_at: string;
 }
 
@@ -51,6 +51,7 @@ export interface Sale {
   items: SaleItem[];
   total: number;
   payment_method: string;
+  status: 'completed' | 'cancelled';
   created_at: string;
 }
 

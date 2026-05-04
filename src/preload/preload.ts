@@ -6,43 +6,60 @@ console.log('[Preload] ipcRenderer available:', !!ipcRenderer);
 
 try {
   // Expose protected methods that allow the renderer process to use
-  // a limited set of IPC methods
+  // a limited set of IPC methods.
+  // All protected calls require a token as the first argument.
   contextBridge.exposeInMainWorld('electronAPI', {
-    // Auth
-    login: (credentials: { username: string; password: string }) => 
+    // Auth (public — no token required)
+    login: (credentials: { username: string; password: string }) =>
       ipcRenderer.invoke('auth:login', credentials),
+    logout: (token: string) => ipcRenderer.invoke('auth:logout', token),
+    validateToken: (token: string) => ipcRenderer.invoke('auth:validate', token),
     resetAdminUser: () => ipcRenderer.invoke('auth:resetAdmin'),
-    createCashierUser: (username: string, password: string) => 
-      ipcRenderer.invoke('auth:createCashier', username, password),
-    listUsers: () => ipcRenderer.invoke('auth:listUsers'),
-    deleteUser: (userId: number) => ipcRenderer.invoke('auth:deleteUser', userId),
 
-  // Products
-  findAllProducts: () => ipcRenderer.invoke('product:findAll'),
-  findProductById: (id: number) => ipcRenderer.invoke('product:findById', id),
-  findProductBySku: (sku: string) => ipcRenderer.invoke('product:findBySku', sku),
-  findProductsByCategory: (categoryId: number) => ipcRenderer.invoke('product:findByCategory', categoryId),
-  searchProducts: (query: string) => ipcRenderer.invoke('product:search', query),
-  createProduct: (product: any) => ipcRenderer.invoke('product:create', product),
-  updateProduct: (id: number, updates: any) => ipcRenderer.invoke('product:update', id, updates),
-  deleteProduct: (id: number) => ipcRenderer.invoke('product:delete', id),
-  getLowStockProducts: (threshold?: number) => ipcRenderer.invoke('product:getLowStock', threshold),
-  getOutOfStockProducts: () => ipcRenderer.invoke('product:getOutOfStock'),
+    // Auth (protected — token required)
+    createCashierUser: (token: string, username: string, password: string) =>
+      ipcRenderer.invoke('auth:createCashier', token, username, password),
+    listUsers: (token: string) => ipcRenderer.invoke('auth:listUsers', token),
+    deleteUser: (token: string, userId: number) => ipcRenderer.invoke('auth:deleteUser', token, userId),
 
-  // Sales
-  createSale: (items: any[], paymentMethod: string) => ipcRenderer.invoke('sale:create', items, paymentMethod),
-  findRecentSales: (limit?: number) => ipcRenderer.invoke('sale:findRecent', limit),
-  findSalesByDate: (startDate: string, endDate: string) => ipcRenderer.invoke('sale:findSalesByDate', startDate, endDate),
-  getSalesReport: (startDate?: string, endDate?: string) => ipcRenderer.invoke('sale:getReport', startDate, endDate),
-  getTodaySales: () => ipcRenderer.invoke('sale:getTodaySales'),
-  getTodayRevenue: () => ipcRenderer.invoke('sale:getTodayRevenue'),
+  // Products (protected — token required)
+  findAllProducts: (token: string, options?: any) => ipcRenderer.invoke('product:findAll', token, options),
+  findProductById: (token: string, id: number) => ipcRenderer.invoke('product:findById', token, id),
+  findProductBySku: (token: string, sku: string) => ipcRenderer.invoke('product:findBySku', token, sku),
+  findProductsByCategory: (token: string, categoryId: number, options?: any) => ipcRenderer.invoke('product:findByCategory', token, categoryId, options),
+  searchProducts: (token: string, query: string, options?: any) => ipcRenderer.invoke('product:search', token, query, options),
+  createProduct: (token: string, product: any) => ipcRenderer.invoke('product:create', token, product),
+  updateProduct: (token: string, id: number, updates: any) => ipcRenderer.invoke('product:update', token, id, updates),
+  deleteProduct: (token: string, id: number) => ipcRenderer.invoke('product:delete', token, id),
+  getLowStockProducts: (token: string, threshold?: number) => ipcRenderer.invoke('product:getLowStock', token, threshold),
+  getOutOfStockProducts: (token: string) => ipcRenderer.invoke('product:getOutOfStock', token),
 
-  // Categories
-  findAllCategories: () => ipcRenderer.invoke('category:findAll'),
-  findCategoryById: (id: number) => ipcRenderer.invoke('category:findById', id),
-  createCategory: (category: any) => ipcRenderer.invoke('category:create', category),
-  updateCategory: (id: number, updates: any) => ipcRenderer.invoke('category:update', id, updates),
-  deleteCategory: (id: number) => ipcRenderer.invoke('category:delete', id),
+  // Sales (protected — token required)
+  createSale: (token: string, items: any[], paymentMethod: string) => ipcRenderer.invoke('sale:create', token, items, paymentMethod),
+  findRecentSales: (token: string, options?: any) => ipcRenderer.invoke('sale:findRecent', token, options),
+  findSalesByDate: (token: string, startDate: string, endDate: string) => ipcRenderer.invoke('sale:findSalesByDate', token, startDate, endDate),
+  getSalesReport: (token: string, startDate?: string, endDate?: string) => ipcRenderer.invoke('sale:getReport', token, startDate, endDate),
+  getTodaySales: (token: string) => ipcRenderer.invoke('sale:getTodaySales', token),
+  getTodayRevenue: (token: string) => ipcRenderer.invoke('sale:getTodayRevenue', token),
+  cancelSale: (token: string, saleId: number) => ipcRenderer.invoke('sale:cancel', token, saleId),
+
+  // Categories (protected — token required)
+  findAllCategories: (token: string, options?: any) => ipcRenderer.invoke('category:findAll', token, options),
+  findCategoryById: (token: string, id: number) => ipcRenderer.invoke('category:findById', token, id),
+  createCategory: (token: string, category: any) => ipcRenderer.invoke('category:create', token, category),
+  updateCategory: (token: string, id: number, updates: any) => ipcRenderer.invoke('category:update', token, id, updates),
+  deleteCategory: (token: string, id: number) => ipcRenderer.invoke('category:delete', token, id),
+
+  // Sync (protected — token required)
+  startSyncServer: (token: string) => ipcRenderer.invoke('sync:startServer', token),
+  stopSyncServer: (token: string) => ipcRenderer.invoke('sync:stopServer', token),
+  isSyncHost: (token: string) => ipcRenderer.invoke('sync:isHost', token),
+  startSyncClient: (token: string, address: string) => ipcRenderer.invoke('sync:startClient', token, address),
+  stopSyncClient: (token: string) => ipcRenderer.invoke('sync:stopClient', token),
+  pullSync: (token: string, address: string) => ipcRenderer.invoke('sync:pullOnce', token, address),
+  getSyncHostAddress: (token: string) => ipcRenderer.invoke('sync:getHostAddress', token),
+  saveSyncHostAddress: (token: string, address: string) => ipcRenderer.invoke('sync:saveHostAddress', token, address),
+  checkSyncHost: (token: string, address: string) => ipcRenderer.invoke('sync:checkHost', token, address),
 });
 
   console.log('[Preload] electronAPI exposed successfully');

@@ -52,11 +52,14 @@ const existing = db.prepare('SELECT id FROM admin_users WHERE username = ?').get
 
 if (existing) {
   db.prepare('UPDATE admin_users SET password_hash = ?, role = ? WHERE username = ?').run(hash, 'admin', 'admin');
-  console.log('✅ Admin password reset to: admin123');
+  console.log('✅ Admin password reset to: admin123 (role: admin)');
 } else {
   db.prepare('INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)').run('admin', hash, 'admin');
-  console.log('✅ Admin user created with password: admin123');
+  console.log('✅ Admin user created with password: admin123 (role: admin)');
 }
+
+// Fix any other users with wrong roles
+db.prepare(`UPDATE admin_users SET role = 'caixa' WHERE username != 'admin' AND role = 'admin'`).run();
 
 console.log('');
 console.log('Login credentials:');

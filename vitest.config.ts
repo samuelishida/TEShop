@@ -5,5 +5,11 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    pool: 'vmForks',
+    poolOptions: {
+      vmForks: {
+        singleFork: true,
+      },
+    },
   },
 });

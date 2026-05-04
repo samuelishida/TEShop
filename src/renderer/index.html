@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';">
   <title>E-Shop PDV</title>
   <link rel="stylesheet" href="./styles/main.css">
 </head>
@@ -36,6 +36,14 @@
     <nav class="sidebar">
       <div class="sidebar-header">
         <h2>🐾 E-Shop</h2>
+        <div class="theme-toggle-wrapper">
+          <span class="theme-label">☀️</span>
+          <label class="switch">
+            <input type="checkbox" id="theme-toggle">
+            <span class="slider"></span>
+          </label>
+          <span class="theme-label">🌙</span>
+        </div>
       </div>
       <ul class="nav-menu">
         <li class="nav-item admin-only active" data-page="dashboard">
@@ -64,7 +72,13 @@
         </li>
       </ul>
       <div class="sidebar-footer">
-        <button id="logout-btn" class="btn btn-danger btn-block">Sair</button>
+        <div id="sync-host-status" class="sync-status">🔄 Verificando...</div>
+        <div class="sync-controls admin-only" style="display:none; margin-top:0.5rem;">
+          <input type="text" id="host-address-input" placeholder="IP do servidor (ex: 192.168.1.100)" class="form-control" style="margin-bottom:0.25rem;">
+          <button onclick="SyncStatus.saveHostAddress()" class="btn btn-sm btn-secondary btn-block">Salvar Endereço</button>
+          <button onclick="SyncStatus.manualSync()" class="btn btn-sm btn-primary btn-block" style="margin-top:0.25rem;">⟳ Sincronizar Agora</button>
+        </div>
+        <button id="logout-btn" class="btn btn-danger btn-block" style="margin-top:0.75rem;">Sair</button>
       </div>
     </nav>
 
@@ -112,7 +126,9 @@
                 <th>Itens</th>
                 <th>Total</th>
                 <th>Pagamento</th>
+                <th>Status</th>
                 <th>Hora</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody></tbody>

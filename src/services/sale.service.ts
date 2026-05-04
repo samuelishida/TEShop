@@ -1,6 +1,22 @@
 import Database from 'better-sqlite3';
 import { DatabaseManager } from '../database/connection';
-import { Sale, SaleItem, SaleReport, Product } from '../types';
+import { Sale, SaleItem, SaleReport } from '../types';
+import { createLogger } from './logger.service';
+
+const log = createLogger('SaleService');
+
+export interface PaginationOptions {
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
 
 export class SaleService {
   private db: Database.Database;
@@ -14,17 +30,15 @@ export class SaleService {
       const saleItems: SaleItem[] = [];
       let total = 0;
 
-      // Validate stock availability
       for (const item of items) {
-        const product = this.db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id);
-        
+        const product = this.db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id) as any;
+
         if (!product) {
           throw new Error(`Produto ${item.product_id} não encontrado`);
         }
 
-        const prod = product as Product;
-        if (prod.stock < item.quantity) {
-          throw new Error(`Estoque insuficiente para ${prod.name}. Disponível: ${prod.stock}`);
+        if (product.stock < item.quantity) {
+          throw new Error(`Estoque insuficiente para ${product.name}. Disponível: ${product.stock}`);
         }
 
         const itemTotal = item.unit_price * item.quantity;
@@ -32,26 +46,22 @@ export class SaleService {
         total += itemTotal;
       }
 
-      // Insert sale
       const saleResult = this.db.prepare(`
-        INSERT INTO sales (items, total, payment_method)
-        VALUES (?, ?, ?)
-      `).run(JSON.stringify(saleItems), total, paymentMethod);
+        INSERT INTO sales (total, payment_method, status)
+        VALUES (?, ?, 'completed')
+      `).run(total, paymentMethod);
 
       const saleId = saleResult.lastInsertRowid as number;
 
-      // Insert sale items and update stock
       for (const item of saleItems) {
-        // Insert sale item record
         this.db.prepare(`
           INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total)
           VALUES (?, ?, ?, ?, ?)
         `).run(saleId, item.product_id, item.quantity, item.unit_price, item.total);
 
-        // Deduct stock
         this.db.prepare(`
-          UPDATE products 
-          SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP 
+          UPDATE products
+          SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `).run(item.quantity, item.product_id);
       }
@@ -61,6 +71,7 @@ export class SaleService {
         items: saleItems,
         total,
         payment_method: paymentMethod,
+        status: 'completed' as const,
         created_at: new Date().toISOString(),
       };
     });
@@ -68,64 +79,127 @@ export class SaleService {
     try {
       return transaction(items);
     } catch (error) {
-      console.error('Erro ao processar venda:', error);
+      log.error('Erro ao processar venda', { error: String(error) });
       return null;
     }
   }
 
-  public findRecentSales(limit: number = 50): Sale[] {
-    const stmt = this.db.prepare(`
-      SELECT *, json(items) as items 
-      FROM sales 
-      ORDER BY created_at DESC 
-      LIMIT ?
-    `);
-    return stmt.all(limit) as unknown as Sale[];
+  /**
+   * Cancel a sale — restores stock and marks sale as cancelled.
+   */
+  public cancelSale(saleId: number): { success: boolean; message: string } {
+    const sale = this.db.prepare('SELECT * FROM sales WHERE id = ?').get(saleId) as any;
+    if (!sale) {
+      return { success: false, message: 'Venda não encontrada' };
+    }
+    if (sale.status === 'cancelled') {
+      return { success: false, message: 'Venda já está cancelada' };
+    }
+
+    const transaction = this.db.transaction(() => {
+      // Restore stock for each item
+      const items = this.db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(saleId) as any[];
+      for (const item of items) {
+        this.db.prepare('UPDATE products SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+          .run(item.quantity, item.product_id);
+      }
+
+      // Mark sale as cancelled
+      this.db.prepare("UPDATE sales SET status = 'cancelled' WHERE id = ?").run(saleId);
+    });
+
+    try {
+      transaction();
+      return { success: true, message: 'Venda cancelada com sucesso' };
+    } catch (error) {
+      log.error('Erro ao cancelar venda', { error: String(error) });
+      return { success: false, message: 'Erro ao cancelar venda' };
+    }
   }
 
-  public findSalesByDate(startDate: string, endDate: string): Sale[] {
-    const stmt = this.db.prepare(`
-      SELECT *, json(items) as items 
-      FROM sales 
+  private hydrateSale(row: any): Sale {
+    const items = this.db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(row.id) as SaleItem[];
+    return {
+      id: row.id,
+      items,
+      total: row.total,
+      payment_method: row.payment_method,
+      status: row.status || 'completed',
+      created_at: row.created_at,
+    };
+  }
+
+  public findRecentSales(options: PaginationOptions = {}): PaginatedResult<Sale> {
+    const limit = Math.min(Math.max(options.limit ?? 50, 1), 500);
+    const offset = Math.max(options.offset ?? 0, 0);
+
+    const total = (this.db.prepare('SELECT COUNT(*) as total FROM sales').get() as { total: number }).total;
+
+    const rows = this.db.prepare(`
+      SELECT * FROM sales
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(limit, offset) as any[];
+
+    const items = rows.map(row => this.hydrateSale(row));
+
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
+  }
+
+  public findSalesByDate(startDate: string, endDate: string, options: PaginationOptions = {}): PaginatedResult<Sale> {
+    const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
+    const offset = Math.max(options.offset ?? 0, 0);
+
+    const total = (this.db.prepare(`
+      SELECT COUNT(*) as total FROM sales WHERE created_at BETWEEN ? AND ?
+    `).get(startDate, endDate) as { total: number }).total;
+
+    const rows = this.db.prepare(`
+      SELECT * FROM sales
       WHERE created_at BETWEEN ? AND ?
       ORDER BY created_at DESC
-    `);
-    return stmt.all(startDate, endDate) as unknown as Sale[];
+      LIMIT ? OFFSET ?
+    `).all(startDate, endDate, limit, offset) as any[];
+
+    const items = rows.map(row => this.hydrateSale(row));
+
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
   }
 
   public getReport(startDate?: string, endDate?: string): SaleReport {
-    let whereClause = '';
+    const whereClauses = ["s.status = 'completed'"];
     const params: any[] = [];
 
     if (startDate && endDate) {
-      whereClause = 'WHERE created_at BETWEEN ? AND ?';
+      whereClauses.push('s.created_at BETWEEN ? AND ?');
       params.push(startDate, endDate);
     }
 
-    // Total sales count and revenue
+    const whereClause = 'WHERE ' + whereClauses.join(' AND ');
+
     const salesData = this.db.prepare(`
-      SELECT COUNT(*) as total_sales, COALESCE(SUM(total), 0) as total_revenue
-      FROM sales ${whereClause}
+      SELECT COUNT(*) as total_sales, COALESCE(SUM(s.total), 0) as total_revenue
+      FROM sales s
+      ${whereClause}
     `).all(...params) as Array<{ total_sales: number; total_revenue: number }>;
 
     const { total_sales, total_revenue } = salesData[0];
 
-    // Top products
     const topProducts = this.db.prepare(`
       SELECT p.name, SUM(si.quantity) as quantity, SUM(si.total) as revenue
       FROM sale_items si
       JOIN products p ON si.product_id = p.id
+      JOIN sales s ON si.sale_id = s.id
       ${whereClause}
       GROUP BY si.product_id
       ORDER BY quantity DESC
       LIMIT 10
     `).all(...params) as Array<{ name: string; quantity: number; revenue: number }>;
 
-    // Daily average
-    const days = startDate && endDate 
+    const days = startDate && endDate
       ? Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 3600 * 24)))
       : 1;
-    
+
     const daily_average = total_revenue / days;
 
     return {
@@ -141,11 +215,8 @@ export class SaleService {
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    return this.findSalesByDate(
-      today.toISOString(),
-      tomorrow.toISOString()
-    );
+
+    return (this.findSalesByDate(today.toISOString(), tomorrow.toISOString()) as any).items;
   }
 
   public getTodayRevenue(): number {
@@ -153,13 +224,13 @@ export class SaleService {
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     const result = this.db.prepare(`
       SELECT COALESCE(SUM(total), 0) as revenue
-      FROM sales 
-      WHERE created_at BETWEEN ? AND ?
+      FROM sales
+      WHERE created_at BETWEEN ? AND ? AND status = 'completed'
     `).get(today.toISOString(), tomorrow.toISOString()) as { revenue: number };
-    
+
     return result.revenue;
   }
 }

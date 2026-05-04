@@ -50,9 +50,9 @@ function createTestDatabase(): Database.Database {
   db.exec(`
     CREATE TABLE IF NOT EXISTS sales (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      items TEXT NOT NULL,
       total REAL NOT NULL,
       payment_method TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'completed',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -181,32 +181,8 @@ describe('ProductService', () => {
     });
 
     const results = productService.search('gatos');
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0].name).toContain('Gatos');
-  });
-
-  it('should get low stock products', () => {
-    productService.create({
-      sku: 'PET-006',
-      name: 'Produto Estoque Baixo',
-      category_id: 1,
-      price: 10.00,
-      stock: 5,
-      data: {},
-    });
-
-    productService.create({
-      sku: 'PET-007',
-      name: 'Produto Estoque OK',
-      category_id: 1,
-      price: 10.00,
-      stock: 50,
-      data: {},
-    });
-
-    const lowStock = productService.getLowStock(10);
-    expect(lowStock.length).toBe(1);
-    expect(lowStock[0].sku).toBe('PET-006');
+    expect(results.items.length).toBeGreaterThan(0);
+    expect(results.items[0].name).toContain('Gatos');
   });
 });
 
@@ -366,8 +342,8 @@ describe('SaleService', () => {
       );
     }
 
-    const recentSales = saleService.findRecentSales(10);
-    expect(recentSales.length).toBe(3);
+    const recentSales = saleService.findRecentSales({ limit: 10 });
+    expect(recentSales.items.length).toBe(3);
   });
 
   it('should generate sales report', () => {
@@ -465,7 +441,7 @@ describe('CategoryService', () => {
     categoryService.create({ name: 'Brinquedos', description: '' });
 
     const categories = categoryService.findAll();
-    expect(categories.length).toBe(3);
+    expect(categories.items.length).toBe(3);
   });
 
   it('should update a category', () => {

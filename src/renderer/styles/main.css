@@ -39,6 +39,96 @@
   --transition: all 0.2s ease;
 }
 
+/* --- Dark Theme --- */
+[data-theme="dark"] {
+  --bg-dark: #020617;
+  --bg-sidebar: #0f172a;
+  --bg-main: #0f172a;
+  --bg-card: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-light: #64748b;
+  --text-inverse: #0f172a;
+  --border: #334155;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4), 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] body {
+  color: var(--text-primary);
+  background: var(--bg-main);
+}
+
+[data-theme="dark"] .login-container {
+  background: var(--bg-card);
+}
+
+[data-theme="dark"] .stat-card {
+  background: var(--bg-card);
+}
+
+[data-theme="dark"] .data-table th {
+  background: var(--bg-sidebar);
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .data-table td {
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .data-table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+[data-theme="dark"] .modal-content {
+  background: var(--bg-card);
+}
+
+[data-theme="dark"] .form-control,
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input[type="password"],
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: var(--bg-sidebar);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .search-input {
+  background: var(--bg-sidebar);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .product-card {
+  background: var(--bg-card);
+}
+
+[data-theme="dark"] .product-card:hover {
+  background: var(--primary);
+}
+
+[data-theme="dark"] .cart-item {
+  background: var(--bg-sidebar);
+}
+
+[data-theme="dark"] .report-filters {
+  background: var(--bg-card);
+}
+
+[data-theme="dark"] .toast {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .empty-state {
+  color: var(--text-secondary);
+}
+
 html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
@@ -969,4 +1059,105 @@ body {
 .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
+}
+
+/* --- Sync Status --- */
+.sync-status {
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0.25rem;
+  border-radius: var(--radius);
+  background: var(--bg-sidebar);
+  color: var(--text-secondary);
+}
+
+.sync-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+[data-theme="dark"] .sync-status {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+}
+
+/* --- Theme Toggle --- */
+.theme-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.theme-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--text-light);
+  border-radius: 20px;
+  transition: 0.3s;
+}
+
+.slider::before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+
+input:checked + .slider {
+  background-color: var(--primary);
+}
+
+input:checked + .slider::before {
+  transform: translateX(16px);
+}
+
+/* Dark theme adjustments for sidebar */
+[data-theme="dark"] .sidebar-header {
+  border-bottom-color: var(--border);
+}
+
+[data-theme="dark"] .nav-item:hover {
+  background: rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="dark"] .nav-item.active {
+  background: rgba(99, 102, 241, 0.25);
+}
+
+[data-theme="dark"] .login-container {
+  border: 1px solid var(--border);
+}
+
+[data-theme="dark"] .login-header h1 {
+  color: var(--text-primary);
 }

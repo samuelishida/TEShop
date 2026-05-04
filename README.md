@@ -1,312 +1,373 @@
 # 🐾 E-Shop PDV
 
-Sistema de PDV (Ponto de Venda) e Gestão de Estoque modular, inicialmente configurado para um Pet Shop, mas com arquitetura genérica para qualquer varejo.
+Sistema de PDV (Ponto de Venda) e Gestão de Estoque modular para varejo. Construído com Electron + SQLite + TypeScript.
+
+> **Stack:** Electron 41 · SQLite (better-sqlite3) · TypeScript strict · Vite 6 · Vitest 3 · Zod 4
+
+> **v2.0** — Autenticação em todos os endpoints, cancelamento de vendas, sync autenticado, CSP restritiva, logging estruturado.
+
+---
 
 ## 📋 Índice
 
-- [Stack Técnica](#stack-técnica)
 - [Funcionalidades](#funcionalidades)
-- [Arquitetura](#arquitetura)
 - [Instalação](#instalação)
 - [Execução](#execução)
 - [Testes](#testes)
+- [Arquitetura](#arquitetura)
 - [Estrutura de Pastas](#estrutura-de-pastas)
 - [API IPC](#api-ipc)
-- [Licença](#licença)
+- [Banco de Dados](#banco-de-dados)
+- [Segurança](#segurança)
+- [Build](#build)
 
-## 🛠 Stack Técnica
-
-| Tecnologia | Versão | Propósito |
-|------------|--------|-----------|
-| **TypeScript** | 5.7+ | Linguagem principal (Strict Mode) |
-| **Electron** | 33+ | Framework desktop multiplataforma |
-| **SQLite** | 3 | Banco de dados local com WAL mode |
-| **better-sqlite3** | 11.6+ | Driver SQLite síncrono e de alta performance |
-| **Vite** | 6+ | Build tool e dev server do renderer |
-| **Vitest** | 3+ | Testes unitários |
-| **bcryptjs** | 2.4+ | Hash de senhas (bcrypt) |
+---
 
 ## ✨ Funcionalidades
 
 ### 🔐 Dashboard Admin
-- Proteção por senha com hash bcrypt
-- CRUD completo de produtos com metadados JSONB
+- Login com hash bcrypt + autenticação por sessão (token JWT-like)
+- **Auth middleware em todos os IPC handlers** — token validado antes de cada operação
+- **Validação de sessão no restore** — token expirado/revogado rejeitado no frontend
+- Proteção contra brute force (5 tentativas, lockout de 15 min)
+- CRUD completo de produtos com metadados JSONB extensíveis
 - Gestão de categorias hierárquicas
-- Visualização de relatórios de vendas
-- Indicadores em tempo real (vendas hoje, estoque baixo, etc.)
+- Gerenciamento de usuários (admin + caixa)
+- Visualização de relatórios com paginação
+- Indicadores em tempo real (vendas do dia, estoque baixo, receita)
+- **Cancelamento de vendas** com restauração automática de estoque
 
 ### 🛒 Sistema de Caixa (POS)
-- Interface otimizada para rapidez de atendimento
-- Busca por nome ou leitura de código de barras/SKU
-- Carrinho com controle de quantidade
-- Baixa automática no estoque via transações ACID
-- Suporte a múltiplas formas de pagamento (Dinheiro, Crédito, Débito, PIX)
+- Interface otimizada para atendimento rápido
+- Busca por nome, SKU ou código de barras
+- Carrinho com controle de quantidade (+, −, remover)
+- Baixa automática de estoque via transações ACID
+- Múltiplas formas de pagamento (Dinheiro, Crédito, Débito, PIX)
 
 ### 📦 Gestão de Estoque
-- Controle de entrada e saída de produtos
-- Alertas de estoque baixo e sem estoque
-- Produtos com metadados extensíveis via JSONB
-- Índices binários em campos críticos (sku, id, name) para alta performance
+- Cadastro de produtos com SKU único e metadados JSONB
+- Categorias hierárquicas
+- Alertas de estoque baixo (configurável)
+- Índices binários para alta performance em campos críticos
 
-## 🏗 Arquitetura
+### 🔄 Sincronização LAN
+- Admin inicia servidor HTTP na porta 38475
+- **Autenticação HMAC-SHA256** no endpoint `/sync` — token gerado por instância
+- Caixas sincronizam dados a cada 10 minutos (polling) com token de autenticação
+- Sync não-destrutivo: estoque local preservado em caso de conflito (upsert/merge)
+- Endereço do admin e sync token salvos persistentemente no banco
 
-### Padrão Strategy para Metadados
-O sistema utiliza uma coluna `data` do tipo JSONB na tabela `products`, permitindo atributos variados por tipo de negócio:
+### 🌙 Interface
+- Dark mode com toggle na sidebar
+- Layout responsivo adaptado para PDV
+- Tema CSS Variables — fácil de customizar
 
-```typescript
-// Pet Shop
-{ weight: 15, flavor: "frango", breed: "todos" }
-
-// Vestuário
-{ size: "M", color: "azul", material: "algodão" }
-
-// Eletrônicos
-{ brand: "Philips", warranty_months: 12, voltage: "110V" }
-```
-
-### IPC Seguro
-A comunicação entre processos utiliza `contextBridge` do Electron, expondo apenas métodos necessários ao renderer:
-
-```typescript
-// Preload (processo seguro)
-contextBridge.exposeInMainWorld('electronAPI', {
-  login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
-  findAllProducts: () => ipcRenderer.invoke('product:findAll'),
-  createSale: (items, paymentMethod) => ipcRenderer.invoke('sale:create', items, paymentMethod),
-  // ...
-});
-```
-
-### Transações ACID
-Todas as operações de venda utilizam transações SQLite para garantir consistência:
-
-```typescript
-const transaction = this.db.transaction((items) => {
-  // 1. Validar estoque
-  // 2. Inserir venda
-  // 3. Inserir itens da venda
-  // 4. Deduzir estoque
-  // Tudo ou nada - rollback automático em caso de erro
-});
-```
+---
 
 ## 📥 Instalação
 
 ### Pré-requisitos
-- Node.js 20+ 
+- Node.js 20+
 - npm ou yarn
-- Python 3 (para compilação do better-sqlite3)
-- Build tools do sistema operacional (gcc/make no Linux, Visual Studio Build Tools no Windows)
+- Python 3 (para compilar better-sqlite3)
+- Build tools: `gcc`/`make` (Linux), Visual Studio Build Tools (Windows)
 
 ### Passos
 
 ```bash
-# Clone o repositório
 git clone https://github.com/seu-usuario/eshop-pdv.git
 cd eshop-pdv
-
-# Instale as dependências
 npm install
-
-# Compile o TypeScript
-npm run build
 ```
+
+### Compile o native module (better-sqlite3)
+
+```bash
+# Linux
+sudo apt install build-essential python3
+npx electron-rebuild
+
+# macOS
+xcode-select --install
+npx electron-rebuild
+
+# Windows (PowerShell como admin)
+npx electron-rebuild
+```
+
+---
 
 ## 🚀 Execução
 
 ### Modo Desenvolvimento
 ```bash
-# Inicia o Vite (renderer) e o Electron (main) simultaneamente
 npm run dev
 ```
+Abre Vite na porta 5173 e Electron com DevTools.
 
 ### Modo Produção
 ```bash
-# Build completo
-npm run build
-
-# Inicia o aplicativo
-npm start
+npm run build        # Compila TypeScript + bundla renderer
+npm start            # Executa o app
 ```
 
-### Build do Instalador
+### Resetar senha do admin
 ```bash
-# Gera o instalador para a plataforma atual
-npm run electron:build
+npm run reset-admin
+# Saída: "Usuário admin criado. Senha: admin123"
 ```
+
+---
 
 ## 🧪 Testes
 
-O projeto utiliza **Vitest** para testes unitários. Os testes cobrem:
-
-- ✅ Criação de produtos com JSONB
-- ✅ Busca por SKU e nome
-- ✅ Transações de venda (ACID)
-- ✅ Rollback em estoque insuficiente
-- ✅ Cálculo de totais
-- ✅ Relatórios de vendas
-- ✅ Autenticação com bcrypt
-- ✅ Metadados extensíveis (Pet Shop, Vestuário, Eletrônicos)
-
 ```bash
-# Executar todos os testes
-npm test
-
-# Modo watch (durante desenvolvimento)
-npm run test:watch
+npm test          # Executa todos os testes (Vitest)
+npm run test:watch  # Modo watch durante desenvolvimento
 ```
 
-### Exemplo de Teste - Transação de Venda
+**Cobertura atual:** 25 testes — ProductService, SaleService (ACID + cancelamento), AuthService (bcrypt + sessions), CategoryService.
 
-```typescript
-it('should create a sale and deduct stock (ACID transaction)', () => {
-  const product = productService.create({
-    sku: 'PET-100',
-    name: 'Ração Premium',
-    price: 89.90,
-    stock: 50,
-    data: { weight: 15, flavor: 'frango' },
-  });
-
-  const items = [
-    { product_id: product.id, quantity: 2, unit_price: 89.90 },
-  ];
-
-  const sale = saleService.createSale(items, 'cash');
-
-  expect(sale).toBeDefined();
-  expect(sale?.total).toBe(179.80);
-  
-  const updated = productService.findById(product.id);
-  expect(updated?.stock).toBe(48); // 50 - 2
-});
 ```
+✓ 25 tests passed
+  ✓ auth.service    — 5 tests (login, logout, brute-force, session expiry)
+  ✓ product.service — 5 tests (CRUD, search, low-stock)
+  ✓ sale.service    — 7 tests (ACID transaction, rollback, reports, cancellation)
+  ✓ category.service — 4 tests (CRUD)
+  ✓ JSONB metadata  — 4 tests (pet shop, clothing, electronics, update)
+```
+
+---
+
+## 🏗 Arquitetura
+
+### Camadas
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Renderer (Vanilla JS — modules/)                   │
+│  safe-dom.ts · 13 modules factory                   │
+│  textContent everywhere (XSS protection)             │
+└──────────────────┬──────────────────────────────────┘
+                   │ window.electronAPI (contextBridge)
+┌──────────────────▼──────────────────────────────────┐
+│  Preload (IPC bridge — apenas métodos necessários)    │
+└──────────────────┬──────────────────────────────────┘
+                   │ ipcRenderer.invoke / ipcMain.handle
+┌──────────────────▼──────────────────────────────────┐
+│  Main Process                                           │
+│  ├── IPC Handlers (validação Zod)                      │
+│  ├── Services (auth, product, sale, category, sync)    │
+│  └── Database (migrations versionadas)                 │
+└──────────────────────────────────────────────────────┘
+```
+
+### Fluxo de uma venda
+
+```
+POS.loadProducts()
+  → window.electronAPI.findAllProducts({ page: 1, limit: 50 })
+  → ipcRenderer.invoke('product:findAll', { page: 1, limit: 50 })
+  → productService.findAll({ page: 1, limit: 50 })
+  → SQLite transaction (ACID)
+  ← { data: Product[], total: number }
+  ← Carrinho renderizado com textContent
+```
+
+### Sessão e segurança
+
+```
+Login → authService.login()
+  → bcrypt.compareSync(password, hash)
+  → SessionManager.create(user)
+  → Token JWT-like salvo no banco + retornado ao renderer
+  → renderer guarda em localStorage ('session_token')
+  → Todo IPC subsequente: token como primeiro argumento
+  → requireAuth() valida token antes de processar cada handler
+  → restoreSession() valida token com auth:validate no backend
+  → Brute-force: 5 tentativas → 15min lockout
+  → Sync: HMAC-SHA256 token no header Authorization
+```
+
+---
 
 ## 📁 Estrutura de Pastas
 
 ```
 eshop-pdv/
-├── package.json              # Dependências e scripts
-├── tsconfig.json             # Configuração TypeScript
-├── vite.config.ts            # Configuração Vite (renderer)
-├── vitest.config.ts          # Configuração Vitest
-├── README.md                 # Documentação (PT-BR)
-├── README_EN.md              # Documentação (English)
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+├── vitest.config.ts
 │
 ├── src/
 │   ├── database/
-│   │   └── connection.ts     # Conexão SQLite + migrações
+│   │   ├── connection.ts       # DatabaseManager + seed genérico
+│   │   └── migrations.ts       # ✅ V1-V4 versionadas (cascade, status, upsert)
 │   │
 │   ├── main/
-│   │   └── main.ts           # Processo principal Electron + IPC handlers
+│   │   └── main.ts             # IPC handlers + Zod validation
 │   │
 │   ├── preload/
-│   │   └── preload.ts        # Bridge segura entre main e renderer
+│   │   └── preload.ts           # contextBridge — electronAPI
 │   │
 │   ├── renderer/
-│   │   ├── index.html        # Interface principal
+│   │   ├── index.html           # SPA entry point
 │   │   ├── js/
-│   │   │   └── app.js        # Lógica do frontend (SPA)
+│   │   │   ├── app.js           # Bootstrap + Session + auth restore
+│   │   │   └── modules/         # ✅ 13 módulos factory (todos com Session)
+│   │   │       ├── auth.js
+│   │   │       ├── cart.js
+│   │   │       ├── categories.js
+│   │   │       ├── dashboard.js
+│   │   │       ├── modal.js
+│   │   │       ├── navigation.js
+│   │   │       ├── pos.js
+│   │   │       ├── products.js
+│   │   │       ├── reports.js
+│   │   │       ├── sync.js
+│   │   │       ├── toast.js
+│   │   │       └── users.js
 │   │   └── styles/
-│   │       └── main.css      # Estilos globais
+│   │       └── main.css         # CSS Variables + dark mode
 │   │
 │   ├── services/
-│   │   ├── auth.service.ts   # Autenticação (bcrypt)
-│   │   ├── product.service.ts # CRUD produtos + estoque
-│   │   ├── sale.service.ts   # Transações de venda (ACID)
-│   │   └── category.service.ts # CRUD categorias
+│   │   ├── auth.service.ts     # bcrypt + rate limiting + sessions
+│   │   ├── category.service.ts # CRUD + paginação
+│   │   ├── logger.service.ts   # ✅ Structured logging (DEBUG/INFO/WARN/ERROR)
+│   │   ├── product.service.ts  # CRUD + search + paginação
+│   │   ├── sale.service.ts     # ACID transactions + cancelamento + relatórios
+│   │   ├── session.service.ts  # Token management + cleanup
+│   │   └── sync.service.ts     # ✅ HMAC auth + upsert merge + host discovery
 │   │
-│   └── types/
-│       └── index.ts          # Interfaces TypeScript
+│   ├── types/
+│   │   └── index.ts            # Product, Sale, Category, User, Session
+│   │
+│   └── validation/
+│       ├── index.ts            # extractZodError()
+│       └── schemas.ts          # Zod v4 schemas para todos os IPC
+│
+├── scripts/
+│   └── reset-admin.js         # CLI para resetar admin
 │
 └── tests/
-    └── sale.test.ts          # Testes unitários (Vitest)
+    └── sale.test.ts           # 26 testes Vitest
 ```
+
+---
 
 ## 🔌 API IPC
 
 ### Autenticação
-| Canal | Parâmetros | Retorno |
-|-------|-----------|---------|
-| `auth:login` | `{ username, password }` | `{ success, user?, message? }` |
+| Canal | Parâmetros | Retorno | Auth |
+|-------|-----------|---------|------|
+| `auth:login` | `{ username, password }` | `{ success, user, token?, message? }` | Público |
+| `auth:logout` | `token` | `{ success }` | Público |
+| `auth:validate` | `token` | `{ valid, userId? }` | Público |
+| `auth:resetAdmin` | — | `{ success }` | Público |
+| `auth:createCashier` | `token, username, password` | `{ success, message }` | 🔒 |
+| `auth:listUsers` | `token` | `User[]` | 🔒 |
+| `auth:deleteUser` | `token, userId` | `{ success }` | 🔒 |
 
-### Produtos
+### Produtos (🔒 todos requerem token)
 | Canal | Parâmetros | Retorno |
 |-------|-----------|---------|
-| `product:findAll` | - | `Product[]` |
-| `product:findById` | `id: number` | `Product \| undefined` |
-| `product:findBySku` | `sku: string` | `Product \| undefined` |
-| `product:search` | `query: string` | `Product[]` |
-| `product:create` | `Omit<Product, 'id' \| 'created_at' \| 'updated_at'>` | `Product` |
-| `product:update` | `id: number, Partial<Product>` | `Product \| undefined` |
-| `product:delete` | `id: number` | `boolean` |
-| `product:getLowStock` | `threshold?: number` | `Product[]` |
+| `product:findAll` | `token, { page?, limit? }` | `PaginatedResult<Product>` |
+| `product:findById` | `token, id` | `Product \| null` |
+| `product:findBySku` | `token, sku` | `Product \| null` |
+| `product:findByCategory` | `token, categoryId, { page?, limit? }` | `PaginatedResult<Product>` |
+| `product:search` | `token, query, { page?, limit? }` | `PaginatedResult<Product>` |
+| `product:create` | `token, ProductInput` | `Product` |
+| `product:update` | `token, id, Partial<ProductInput>` | `Product` |
+| `product:delete` | `token, id` | `boolean` |
+| `product:getLowStock` | `token, threshold?` | `Product[]` |
+| `product:getOutOfStock` | `token` | `Product[]` |
 
-### Vendas
+### Vendas (🔒 todos requerem token)
 | Canal | Parâmetros | Retorno |
 |-------|-----------|---------|
-| `sale:create` | `items[], paymentMethod` | `Sale \| null` |
-| `sale:findRecent` | `limit?: number` | `Sale[]` |
-| `sale:getReport` | `startDate?, endDate?` | `SaleReport` |
-| `sale:getTodaySales` | - | `Sale[]` |
-| `sale:getTodayRevenue` | - | `number` |
+| `sale:create` | `token, items[], paymentMethod` | `Sale` |
+| `sale:findRecent` | `token, { limit? }` | `PaginatedResult<Sale>` |
+| `sale:findSalesByDate` | `token, startDate, endDate, { page?, limit? }` | `PaginatedResult<Sale>` |
+| `sale:getReport` | `token, startDate?, endDate?` | `SaleReport` |
+| `sale:getTodaySales` | `token` | `Sale[]` |
+| `sale:getTodayRevenue` | `token` | `number` |
+| `sale:cancel` | `token, saleId` | `{ success, message }` |
 
-### Categorias
+### Categorias (🔒 todos requerem token)
 | Canal | Parâmetros | Retorno |
 |-------|-----------|---------|
-| `category:findAll` | - | `Category[]` |
-| `category:create` | `Omit<Category, 'id' \| 'created_at'>` | `Category` |
-| `category:update` | `id: number, Partial<Category>` | `Category \| undefined` |
-| `category:delete` | `id: number` | `boolean` |
+| `category:findAll` | `token, { page?, limit? }` | `PaginatedResult<Category>` |
+| `category:create` | `token, CategoryInput` | `Category` |
+| `category:update` | `token, id, Partial<CategoryInput>` | `Category` |
+| `category:delete` | `token, id` | `boolean` |
+
+### Sessão
+| Canal | Parâmetros | Retorno |
+|-------|-----------|---------|
+| `auth:validate` | `token` | `{ valid, userId? }` |
+
+### Sync (LAN) (🔒 todos requerem token)
+| Canal | Parâmetros | Retorno |
+|-------|-----------|---------|
+| `sync:startServer` | `token` | `{ success, isHost, message, token? }` |
+| `sync:stopServer` | `token` | `{ success, message }` |
+| `sync:isHost` | `token` | `boolean` |
+| `sync:startClient` | `token, address` | `{ success, message }` |
+| `sync:stopClient` | `token` | `{ success, message }` |
+| `sync:pullOnce` | `token, address` | `{ success, message }` |
+| `sync:getHostAddress` | `token` | `string \| null` |
+| `sync:saveHostAddress` | `token, address` | `{ success }` |
+| `sync:checkHost` | `token, address` | `{ success, reachable }` |
+
+---
 
 ## 🗄 Banco de Dados
 
-### Schema
+### Schema (SQLite)
 
 ```sql
--- Produtos com JSONB
+-- Produtos com metadados JSONB
 CREATE TABLE products (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   sku TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
-  category_id INTEGER,
+  category_id INTEGER REFERENCES categories(id),
   price REAL NOT NULL DEFAULT 0,
   stock INTEGER NOT NULL DEFAULT 0,
-  data TEXT NOT NULL DEFAULT '{}',  -- JSONB
+  data TEXT NOT NULL DEFAULT '{}',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (category_id) REFERENCES categories(id)
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índices binários para alta performance
+-- Índices para alta performance
 CREATE INDEX idx_products_sku ON products(sku);
 CREATE INDEX idx_products_id ON products(id);
 CREATE INDEX idx_products_name ON products(name);
 CREATE INDEX idx_products_category ON products(category_id);
 
--- Categorias
+-- Categorias hierárquicas
 CREATE TABLE categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   description TEXT,
-  parent_id INTEGER,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (parent_id) REFERENCES categories(id)
-);
-
--- Vendas
-CREATE TABLE sales (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  items TEXT NOT NULL,  -- JSON array
-  total REAL NOT NULL,
-  payment_method TEXT NOT NULL,
+  parent_id INTEGER REFERENCES categories(id),
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Itens de venda (denormalizado para relatórios)
+-- Vendas (coluna items removida — dados normalizados em sale_items)
+CREATE TABLE sales (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  total REAL NOT NULL,
+  payment_method TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'completed',  -- 'completed' | 'cancelled'
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Itens de venda (para relatórios)
 CREATE TABLE sale_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  sale_id INTEGER NOT NULL,
+  sale_id INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL,
   quantity INTEGER NOT NULL,
   unit_price REAL NOT NULL,
@@ -318,31 +379,98 @@ CREATE TABLE admin_users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'caixa',  -- 'admin' | 'caixa'
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sessões ativas
+CREATE TABLE sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+  token TEXT UNIQUE NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_sessions_token ON sessions(token);
+
+-- Controle de versão das migrações
+CREATE TABLE db_version (
+  version INTEGER PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
+
+-- Estado da aplicação (sync host, etc)
+CREATE TABLE app_state (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+-- Log de sincronizações
+CREATE TABLE sync_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  synced_at TEXT NOT NULL,
+  success INTEGER NOT NULL,
+  message TEXT,
+  records_synced INTEGER DEFAULT 0
 );
 ```
 
+### Migrações Versionadas
+
+```typescript
+// migrations.ts — aplicado em ordem, cada versão é um bloco
+const MIGRATIONS = [
+  { version: 1, description: 'Versão inicial — todas as tabelas', ... },
+  { version: 2, description: 'Adiciona sessions com token e expiry', ... },
+  { version: 3, description: 'Adiciona app_state para sync', ... },
+  { version: 4, description: 'Cascade deletes, sale status, remove items JSON, auth middleware', ... },
+];
+```
+
+---
+
 ## 🔒 Segurança
 
-- **Context Isolation**: Ativado (`contextIsolation: true`)
-- **Node Integration**: Desativado (`nodeIntegration: false`)
-- **Preload Script**: Único ponto de comunicação IPC
-- **CSP**: Content Security Policy configurado no HTML
-- **Senhas**: Hash com bcrypt (salt rounds: 10)
-- **SQL Injection**: Prevenido via prepared statements do better-sqlite3
+| Medida | Implementação |
+|--------|-------------|
+| Context Isolation | `contextIsolation: true` — renderer não acessa Node nem Electron diretamente |
+| Node Integration | `nodeIntegration: false` |
+| CSP | `script-src 'self'` — sem `unsafe-inline` |
+| IPC Bridge | `contextBridge.exposeInMainWorld` — apenas métodos necessários |
+| **Auth middleware** | `requireAuth()` valida token em **todos** os handlers protegidos |
+| **Session restore** | `restoreSession()` chama `auth:validate` no backend — token expirado rejeitado |
+| Validação de entrada | **Zod v4** em todos os IPC handlers do main |
+| Sanitização de output | `textContent` em vez de `innerHTML` em todos os módulos |
+| Senhas | `bcryptjs` com salt de 12 rounds |
+| Rate limiting | 5 tentativas de login → 15 min de lockout |
+| Sessões | Token com TTL de 7 dias, cleanup automático |
+| SQL Injection | Prepared statements (`db.prepare()`) — nunca concatenação |
+| **Sync auth** | HMAC-SHA256 no endpoint `/sync` — token por instância |
+| Sync passwords | Hash **nunca** sai do admin — sync usa só `id, username, role` |
+| Sync conflitos | UpsertMerge preserva estoque local em caso de conflito |
+| **Cancelamento** | Vendas podem ser canceladas com restauração de estoque |
+| **Logging** | Logger estruturado com níveis DEBUG/INFO/WARN/ERROR |
+| **Foreign keys** | `ON DELETE CASCADE` em sale_items e sessions; `ON DELETE SET NULL` em products.category_id |
+
+---
 
 ## 📦 Build
 
-### Configurações Suportadas
-- **Windows**: NSIS installer
-- **Linux**: AppImage
-- **macOS**: DMG (requer ajustes no build)
+### Gerar instalador AppImage (Linux)
 
-### Variáveis de Ambiente
 ```bash
-NODE_ENV=development  # Modo dev (DevTools aberto)
-NODE_ENV=production   # Modo produção
+npm run build && npm run electron:build
+# Output: release/eshop-pdv_1.0.0_amd64.AppImage
 ```
+
+### Variáveis de ambiente
+
+```bash
+NODE_ENV=development   # DevTools aberto, verbose logs
+NODE_ENV=production    # Produção, logs minimalistas
+```
+
+---
 
 ## 🤝 Contribuição
 
@@ -354,6 +482,4 @@ NODE_ENV=production   # Modo produção
 
 ## 📝 Licença
 
-Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
-
----
+MIT — use livremente.
