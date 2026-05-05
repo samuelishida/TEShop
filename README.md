@@ -46,6 +46,7 @@ Sistema de PDV (Ponto de Venda) e Gestão de Estoque modular para varejo. Constr
 
 ### 📦 Gestão de Estoque
 - Cadastro de produtos com SKU único e metadados JSONB
+- **Importação em massa via CSV** — upload de arquivo ou colar texto, com template para download
 - Categorias hierárquicas
 - Alertas de estoque baixo (configurável)
 - Índices binários para alta performance em campos críticos
@@ -82,22 +83,53 @@ npm install
 
 ### Compile o native module (better-sqlite3)
 
+> ⚠️ **Importante:** `better-sqlite3` é um módulo nativo C++ que precisa ser compilado separadamente para **Electron** e para **Node.js regular**. Após `npm install`, o `postinstall` já compila para Electron. Se você rodar `npm test`, precisa recompilar para Node.js. Depois dos testes, recompile para Electron antes de rodar `npm run dev`.
+
+```bash
+# Após npm install — já compilado para Electron via postinstall
+npm run dev
+
+# Para rodar testes (recompila para Node.js regular)
+npm run rebuild:node
+npm test
+
+# Para voltar a rodar o app (recompila para Electron)
+npm run rebuild:electron
+npm run dev
+```
+
+### Por plataforma (primeira instalação)
+
 ```bash
 # Linux
 sudo apt install build-essential python3
-npx electron-rebuild
+npm install        # já roda electron-rebuild no postinstall
 
 # macOS
 xcode-select --install
-npx electron-rebuild
+npm install
 
 # Windows (PowerShell como admin)
-npx electron-rebuild
+npm install
 ```
 
 ---
 
 ## 🚀 Execução
+
+### Scripts disponíveis
+
+| Comando | Descrição |
+|---------|-----------|
+| `npm run dev` | Modo desenvolvimento (Vite + Electron com DevTools) |
+| `npm run build` | Compila TypeScript + bundla renderer |
+| `npm start` | Executa o app em modo produção |
+| `npm test` | Executa todos os testes (Vitest) |
+| `npm run test:watch` | Modo watch durante desenvolvimento |
+| `npm run rebuild:node` | Recompila better-sqlite3 para Node.js (testes) |
+| `npm run rebuild:electron` | Recompila better-sqlite3 para Electron (app) |
+| `npm run reset-admin` | Reseta senha do admin para `admin123` |
+| `npm run electron:build` | Gera AppImage/EXE/DMG via electron-builder |
 
 ### Modo Desenvolvimento
 ```bash

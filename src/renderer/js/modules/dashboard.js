@@ -8,16 +8,20 @@ export function createDashboardModule(deps) {
     Dashboard: {
       async load() {
         try {
-          const revenue = await window.electronAPI.getTodayRevenue(deps.Session.getToken());
-          document.getElementById('today-revenue').textContent = deps.Utils.formatCurrency(revenue);
+          const revenueResult = await window.electronAPI.getTodayRevenue(deps.Session.getToken());
+          document.getElementById('today-revenue').textContent = deps.Utils.formatCurrency(revenueResult ?? 0);
 
-          const todaySales = await window.electronAPI.getTodaySales(deps.Session.getToken());
-          document.getElementById('today-sales-count').textContent = String(todaySales.length);
+          const todaySalesResult = await window.electronAPI.getTodaySales(deps.Session.getToken());
+          const sales = Array.isArray(todaySalesResult) ? todaySalesResult : (todaySalesResult?.data || []);
+          document.getElementById('today-sales-count').textContent = String(sales.length);
 
-          const products = await window.electronAPI.findAllProducts(deps.Session.getToken());
-          document.getElementById('total-products').textContent = String(products.length);
+          const productsResult = await window.electronAPI.findAllProducts(deps.Session.getToken());
+          // Use server-side total so count is accurate even when store has >100 products
+          const totalProducts = productsResult?.total ?? (Array.isArray(productsResult) ? productsResult.length : 0);
+          document.getElementById('total-products').textContent = String(totalProducts);
 
-          const lowStock = await window.electronAPI.getLowStockProducts(deps.Session.getToken(), 10);
+          const lowStockResult = await window.electronAPI.getLowStockProducts(deps.Session.getToken(), 10);
+          const lowStock = Array.isArray(lowStockResult) ? lowStockResult : (lowStockResult?.data || []);
           document.getElementById('low-stock-count').textContent = String(lowStock.length);
 
           await this.loadRecentSales();
@@ -29,7 +33,8 @@ export function createDashboardModule(deps) {
 
       async loadRecentSales() {
         try {
-          const sales = await window.electronAPI.findRecentSales(deps.Session.getToken(), 10);
+          const result = await window.electronAPI.findRecentSales(deps.Session.getToken(), { limit: 10 });
+          const sales = (result && result.data) ? result.data : (Array.isArray(result) ? result : []);
           const tbody = document.querySelector('#recent-sales-table tbody');
           if (!tbody) return;
 
@@ -82,7 +87,7 @@ export function createDashboardModule(deps) {
               const cancelBtn = document.createElement('button');
               cancelBtn.className = 'btn btn-sm btn-danger';
               cancelBtn.textContent = 'Cancelar';
-              cancelBtn.onclick = () => deps.Dashboard.cancelSale(sale.id);
+              cancelBtn.onclick = () => this.cancelSale(sale.id);
               actions.appendChild(cancelBtn);
             } else {
               const noAction = document.createElement('span');

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tana's Pet Store - Catálogo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+    header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; text-align: center; }
+    header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    header p { opacity: 0.9; }
+    .contact { margin-top: 1rem; }
+    .contact a { color: #ffd700; text-decoration: none; font-weight: bold; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    .category { margin-bottom: 3rem; }
+    .category h2 { font-size: 1.8rem; color: #667eea; border-bottom: 3px solid #667eea; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+    .products { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem; }
+    .product { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s; }
+    .product:hover { transform: translateY(-4px); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+    .product img { width: 100%; height: 200px; object-fit: cover; background: #e0e0e0; }
+    .product .info { padding: 1rem; }
+    .product h3 { font-size: 1.1rem; margin-bottom: 0.5rem; color: #444; }
+    .product .price { font-size: 1.3rem; font-weight: bold; color: #667eea; margin-bottom: 0.5rem; }
+    .product .desc { font-size: 0.9rem; color: #666; line-height: 1.4; }
+    .product .tags { margin-top: 0.5rem; }
+    .product .tag { display: inline-block; background: #f0f0f0; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.75rem; margin: 0.2rem; color: #555; }
+    footer { background: #333; color: white; text-align: center; padding: 2rem; margin-top: 2rem; }
+    .cta { background: #ffd700; color: #333; padding: 0.8rem 2rem; border-radius: 25px; text-decoration: none; font-weight: bold; display: inline-block; margin-top: 1rem; }
+    .placeholder { display: flex; align-items: center; justify-content: center; background: #e0e0e0; color: #999; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Tana's Pet Store</h1>
+    <p>Pet shop com banho e tosa, acessórios, rações a granel e muito mais!</p>
+    <div class="contact">
+      📱 <a href="https://wa.me/5511966457877">+55 11 96645-7877</a> | 
+      💰 Pix: tanaspetstore@gmail.com
+    </div>
+    <a href="https://wa.me/5511966457877" class="cta">Pedir pelo WhatsApp</a>
+  </header>
+
+  <div class="container">
+
+    <!-- Ração para Cães -->
+    <div class="category">
+      <h2>🐕 Ração para Cães a Granel</h2>
+      <div class="products">
+        <div class="product">
+          <img src="images/racao_carne.jpg" alt="Ração Carne" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Ração Carne%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Ração Carne (granel)</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Ração sabor carne para cães adultos. Venda por kg.</p>
+            <div class="tags"><span class="tag">cães</span><span class="tag">granel</span><span class="tag">carne</span></div>
+          </div>
+        </div>
+        <div class="product">
+          <img src="images/racao_frango.jpg" alt="Ração Frango" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Ração Frango%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Ração Frango (granel)</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Ração sabor frango para cães adultos. Venda por kg.</p>
+            <div class="tags"><span class="tag">cães</span><span class="tag">granel</span><span class="tag">frango</span></div>
+          </div>
+        </div>
+        <div class="product">
+          <img src="images/sache_caes_carne.jpg" alt="Sachê Carne" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Sachê Carne%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Sachê Cães Carne</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Sachê sabor carne para cães. Por unidade.</p>
+            <div class="tags"><span class="tag">cães</span><span class="tag">sachê</span><span class="tag">carne</span></div>
+          </div>
+        </div>
+        <div class="product">
+          <img src="images/sache_caes_frango.jpg" alt="Sachê Frango" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Sachê Frango%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Sachê Cães Frango</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Sachê sabor frango para cães. Por unidade.</p>
+            <div class="tags"><span class="tag">cães</span><span class="tag">sachê</span><span class="tag">frango</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ração para Gatos -->
+    <div class="category">
+      <h2>🐈 Rações de Gato a Granel</h2>
+      <div class="products">
+        <div class="product">
+          <img src="images/racao_gato_peixe.jpg" alt="Ração Gato Peixe" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Ração Gato Peixe%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Ração Gatos Peixe (granel)</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Ração sabor peixe para gatos. Venda por kg.</p>
+            <div class="tags"><span class="tag">gatos</span><span class="tag">granel</span><span class="tag">peixe</span></div>
+          </div>
+        </div>
+        <div class="product">
+          <img src="images/racao_gato_frango.jpg" alt="Ração Gato Frango" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Ração Gato Frango%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Ração Gatos Frango (granel)</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Ração sabor frango para gatos. Venda por kg.</p>
+            <div class="tags"><span class="tag">gatos</span><span class="tag">granel</span><span class="tag">frango</span></div>
+          </div>
+        </div>
+        <div class="product">
+          <img src="images/sache_gatos.jpg" alt="Sachê Gatos" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Sachê Gatos%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Sachê de Gatos</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Sachê úmido para gatos. Por unidade.</p>
+            <div class="tags"><span class="tag">gatos</span><span class="tag">sachê</span></div>
+          </div>
+        </div>
+        <div class="product">
+          <img src="images/petiscos_gatos.jpg" alt="Petiscos Gatos" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Petiscos Gatos%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Petiscos para Gato</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Petiscos e snacks para gatos. Por pacote.</p>
+            <div class="tags"><span class="tag">gatos</span><span class="tag">petiscos</span><span class="tag">snacks</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Areia Higiênica -->
+    <div class="category">
+      <h2>🧹 Areia Higiênica e Granulado</h2>
+      <div class="products">
+        <div class="product">
+          <img src="images/areia_tradicional.jpg" alt="Areia Tradicional" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Areia Tradicional%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Areia Higiênica Tradicional</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Areia higiênica para gatos - pacote de 2kg.</p>
+            <div class="tags"><span class="tag">gatos</span><span class="tag">higiene</span><span class="tag">areia</span></div>
+          </div>
+        </div>
+        <div class="product">
+          <img src="images/granulado_madeira.jpg" alt="Granulado Madeira" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Granulado Madeira%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Granulado Higiênico de Madeira</h3>
+            <div class="price">R$ 18,90</div>
+            <p class="desc">Granulado higiênico de madeira biodegradável - 2kg.</p>
+            <div class="tags"><span class="tag">gatos</span><span class="tag">higiene</span><span class="tag">granulado</span><span class="tag">ecológico</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pássaros -->
+    <div class="category">
+      <h2>🐦 Produtos para Pássaros</h2>
+      <div class="products">
+        <div class="product">
+          <img src="images/racao_passaro.jpg" alt="Ração Pássaro" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Ração Pássaro%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Ração p/ Pássaro a Granel</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Ração mista para calopsitas e pássaros pequenos. Por kg.</p>
+            <div class="tags"><span class="tag">pássaros</span><span class="tag">calopsita</span><span class="tag">granel</span></div>
+          </div>
+        </div>
+        <div class="product">
+          <img src="images/bastoes_calopsita.jpg" alt="Bastões Calopsita" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Bastões Calopsita%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Bastões de Calopsita e Pássaro</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Bastões de semente e mel para calopsitas. Por pacote.</p>
+            <div class="tags"><span class="tag">pássaros</span><span class="tag">calopsita</span><span class="tag">bastão</span><span class="tag">petisco</span></div>
+          </div>
+        </div>
+        <div class="product">
+          <img src="images/bebedouros.jpg" alt="Bebedouros" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Bebedouros%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Bebedouros</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Bebedouros para pássaros e pequenos animais.</p>
+            <div class="tags"><span class="tag">pássaros</span><span class="tag">acessórios</span><span class="tag">bebedouro</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saúde -->
+    <div class="category">
+      <h2>💊 Saúde e Medicamentos</h2>
+      <div class="products">
+        <div class="product">
+          <img src="images/vermifugo.jpg" alt="Vermífugo" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Vermífugo%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Vermífugo</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Vermífugo para cães e gatos. Por comprimido/dose.</p>
+            <div class="tags"><span class="tag">saúde</span><span class="tag">medicamento</span><span class="tag">vermífugo</span><span class="tag">cães</span><span class="tag">gatos</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Serviços -->
+    <div class="category">
+      <h2>✂️ Serviços</h2>
+      <div class="products">
+        <div class="product">
+          <img src="images/banho_tosa.jpg" alt="Banho e Tosa" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Banho e Tosa%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Banho e Tosa</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Banho e tosa completa para cães e gatos. Agendamento por WhatsApp.</p>
+            <div class="tags"><span class="tag">serviço</span><span class="tag">banho</span><span class="tag">tosa</span><span class="tag">higiene</span></div>
+          </div>
+        </div>
+        <div class="product">
+          <img src="images/acessorios.jpg" alt="Acessórios" class="placeholder" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22200%22%3E%3Crect width=%22250%22 height=%22200%22 fill=%22%23e0e0e0%22/%3E%3Ctext x=%22125%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23999%22%3EFoto: Acessórios%3C/text%3E%3C/svg%3E'">
+          <div class="info">
+            <h3>Acessórios para Pets</h3>
+            <div class="price">Consultar</div>
+            <p class="desc">Coleiras, camas, brinquedos, potes e outros acessórios.</p>
+            <div class="tags"><span class="tag">acessórios</span><span class="tag">coleira</span><span class="tag">brinquedo</span><span class="tag">cama</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <p><strong>Tana's Pet Store</strong></p>
+    <p>📱 +55 11 96645-7877 | 💰 Pix: tanaspetstore@gmail.com</p>
+    <p><a href="https://wa.me/5511966457877" class="cta">Pedir pelo WhatsApp</a></p>
+    <p style="margin-top:1rem; opacity:0.7;">Catálogo gerado em 2026. Atualize os preços no arquivo catalog.json.</p>
+  </footer>
+
+</body>
+</html>

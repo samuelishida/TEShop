@@ -90,7 +90,7 @@ export const migrations: Migration[] = [
       db.exec('CREATE INDEX IF NOT EXISTS idx_sale_items_product ON sale_items(product_id)');
       db.exec('CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items(sale_id)');
     },
-    down(_db) {
+    down(_db: Database.Database): void {
       // Reversing is destructive, so this is a no-op for safety
     },
   },
@@ -206,7 +206,34 @@ export const migrations: Migration[] = [
       db.exec('DROP TABLE sales');
       db.exec('ALTER TABLE sales_new RENAME TO sales');
     },
-    down(db) {
+    down(_db) {
+      // Reversal is not supported for safety
+    },
+  },
+  {
+    version: 5,
+    name: 'add_category_config',
+    up(db) {
+      // Add config JSON column to categories for dynamic field definitions
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS categories_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          description TEXT,
+          parent_id INTEGER,
+          config TEXT NOT NULL DEFAULT '{}',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (parent_id) REFERENCES categories(id)
+        )
+      `);
+      db.exec(`
+        INSERT INTO categories_new (id, name, description, parent_id, created_at)
+        SELECT id, name, description, parent_id, created_at FROM categories
+      `);
+      db.exec('DROP TABLE categories');
+      db.exec('ALTER TABLE categories_new RENAME TO categories');
+    },
+    down(_db) {
       // Reversal is not supported for safety
     },
   },

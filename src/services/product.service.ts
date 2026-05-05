@@ -188,7 +188,9 @@ export class ProductService {
   public getLowStock(threshold: number = 10): Product[] {
     const stmt = this.db.prepare(`
       SELECT *, json(data) as data
-      FROM products WHERE stock <= ? AND stock > 0
+      FROM products
+      WHERE stock <= ? AND stock > 0
+        AND json_extract(data, '$.unit') IS NOT 'servico'
       ORDER BY stock ASC
     `);
     return this.parseProducts(stmt.all(threshold) as any[]);
@@ -197,7 +199,9 @@ export class ProductService {
   public getOutOfStock(): Product[] {
     const stmt = this.db.prepare(`
       SELECT *, json(data) as data
-      FROM products WHERE stock = 0
+      FROM products
+      WHERE stock = 0
+        AND json_extract(data, '$.unit') IS NOT 'servico'
     `);
     return this.parseProducts(stmt.all() as any[]);
   }

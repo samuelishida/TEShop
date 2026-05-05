@@ -7,26 +7,47 @@ export function createUsersModule(deps) {
   return {
     Users: {
       async init() {
-        document.getElementById('add-user-btn').addEventListener('click', () => {
-          deps.Modal.open('user-modal');
-        });
+        const addBtn = document.getElementById('add-user-btn');
+        if (addBtn) addBtn.addEventListener('click', () => deps.Modal.open('user-modal'));
 
-        document.getElementById('user-form').addEventListener('submit', async (e) => {
+        const form = document.getElementById('user-form');
+        if (form) form.addEventListener('submit', async (e) => {
           e.preventDefault();
           await this.createUser();
         });
 
-        document.querySelector('#user-modal .modal-close').addEventListener('click', () => {
-          deps.Modal.close('user-modal');
+        // Modal close buttons (user modal)
+        this._bindModalClose('user-modal');
+
+        // Change password button (sidebar)
+        const cpBtn = document.getElementById('change-password-btn');
+        if (cpBtn) cpBtn.addEventListener('click', () => deps.Modal.open('change-password-modal'));
+
+        // Change password form
+        const cpForm = document.getElementById('change-password-form');
+        if (cpForm) cpForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          await this.changePassword();
         });
-        document.querySelector('#user-modal .modal-cancel').addEventListener('click', () => {
-          deps.Modal.close('user-modal');
-        });
+
+        // Modal close buttons (change password modal)
+        this._bindModalClose('change-password-modal');
+
+        // Toggle delete button for current admin: can't delete self
+        // Handled during renderTable by checking against current user
+      },
+
+      _bindModalClose(modalId) {
+        const closeBtn = document.querySelector(`#${modalId} .modal-close`);
+        if (closeBtn) closeBtn.addEventListener('click', () => deps.Modal.close(modalId));
+        const cancelBtn = document.querySelector(`#${modalId} .modal-cancel`);
+        if (cancelBtn) cancelBtn.addEventListener('click', () => deps.Modal.close(modalId));
       },
 
       async load() {
         try {
-          const users = await window.electronAPI.listUsers(deps.Session.getToken());
+          const result = await window.electronAPI.listUsers(deps.Session.getToken());
+          const users = Array.isArray(result) ? result : [];
           this.renderTable(users);
         } catch (error) {
           console.error('Load users error:', error);
@@ -51,6 +72,8 @@ export function createUsersModule(deps) {
           return;
         }
 
+        const currentUser = deps.Session.getUser();
+
         for (const user of users) {
           const tr = document.createElement('tr');
 
@@ -68,11 +91,12 @@ export function createUsersModule(deps) {
 
           const actionsTd = document.createElement('td');
 
-          if (user.role !== 'admin') {
+          // Can only delete non-admin users, and not yourself
+          if (user.role !== 'admin' && user.id !== currentUser?.id) {
             const delBtn = document.createElement('button');
             delBtn.className = 'btn btn-sm btn-danger';
             delBtn.textContent = '🗑️ Remover';
-            delBtn.onclick = () => deps.Users.deleteUser(user.id, user.username);
+            delBtn.onclick = () => this.deleteUser(user.id, user.username);
             actionsTd.appendChild(delBtn);
           } else {
             const noAction = document.createElement('span');
@@ -92,6 +116,7 @@ export function createUsersModule(deps) {
       async createUser() {
         const username = document.getElementById('new-username').value.trim();
         const password = document.getElementById('new-password').value;
+        const role = document.getElementById('new-user-role').value;
 
         if (!username || !password) {
           deps.Toast.warning('Preencha todos os campos');
@@ -104,7 +129,7 @@ export function createUsersModule(deps) {
         }
 
         try {
-          const result = await window.electronAPI.createCashierUser(deps.Session.getToken(), username, password);
+          const result = await window.electronAPI.createUser(deps.Session.getToken(), username, password, role);
           if (result.success) {
             deps.Toast.success(result.message);
             deps.Modal.close('user-modal');
@@ -131,6 +156,44 @@ export function createUsersModule(deps) {
           }
         } catch (error) {
           deps.Toast.error('Erro ao remover usuário');
+        }
+      },
+
+      async changePassword() {
+        const oldPassword = document.getElementById('old-password').value;
+        const newPassword = document.getElementById('new-password-change').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+
+        if (!oldPassword || !newPassword || !confirmPassword) {
+          deps.Toast.warning('Preencha todos os campos');
+          return;
+        }
+
+        if (newPassword.length < 4) {
+          deps.Toast.warning('A nova senha deve ter pelo menos 4 caracteres');
+          return;
+        }
+
+        if (newPassword !== confirmPassword) {
+          deps.Toast.warning('As senhas não coincidem');
+          return;
+        }
+
+        try {
+          const result = await window.electronAPI.changePassword(
+            deps.Session.getToken(),
+            oldPassword,
+            newPassword
+          );
+          if (result.success) {
+            deps.Toast.success('Senha alterada com sucesso');
+            deps.Modal.close('change-password-modal');
+            document.getElementById('change-password-form').reset();
+          } else {
+            deps.Toast.error(result.message || 'Erro ao alterar senha');
+          }
+        } catch (error) {
+          deps.Toast.error('Erro ao alterar senha');
         }
       },
     },

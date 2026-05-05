@@ -1,6 +1,5 @@
 import http from 'http';
 import crypto from 'crypto';
-import Database from 'better-sqlite3';
 import { DatabaseManager } from '../database/connection';
 import { createLogger } from './logger.service';
 
@@ -8,13 +7,37 @@ const log = createLogger('Sync');
 
 const SYNC_PORT = 38475;
 const SYNC_INTERVAL = 10 * 60 * 1000; // 10 minutes
-const SYNC_TOKEN_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes for sync tokens
+const MAX_REQUESTS_PER_MIN = 30; // Rate limit per IP
 
 let server: http.Server | null = null;
 let syncInterval: NodeJS.Timeout | null = null;
 
 /** Shared secret for sync authentication — regenerated on each server start */
 let syncSecret: string = '';
+
+/** Simple in-memory rate limiter: ip -> { count, resetTime } */
+const rateLimit = new Map<string, { count: number; resetTime: number }>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimit.get(ip);
+  if (!entry || now > entry.resetTime) {
+    rateLimit.set(ip, { count: 1, resetTime: now + 60_000 });
+    return false;
+  }
+  entry.count++;
+  if (entry.count > MAX_REQUESTS_PER_MIN) {
+    log.warn('Rate limit exceeded', { ip, count: entry.count });
+    return true;
+  }
+  return false;
+}
+
+function getClientIp(req: http.IncomingMessage): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
+  return req.socket.remoteAddress || 'unknown';
+}
 
 interface SyncPayload {
   timestamp: number;
@@ -28,12 +51,6 @@ interface SyncPayload {
 /** Generate an HMAC-SHA256 token for sync authentication */
 function generateSyncToken(payload: string): string {
   return crypto.createHmac('sha256', syncSecret).update(payload).digest('hex');
-}
-
-/** Verify a sync token */
-function verifySyncToken(token: string, payload: string): boolean {
-  const expected = generateSyncToken(payload);
-  return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
 }
 
 export class SyncService {
@@ -50,9 +67,31 @@ export class SyncService {
       // Generate a new sync secret on each server start
       syncSecret = crypto.randomBytes(32).toString('hex');
 
+      // Cache the sync token for distribution via /token endpoint
+      const syncToken = generateSyncToken(syncSecret);
+
       server = http.createServer((req, res) => {
-        // CORS headers
-        res.setHeader('Access-Control-Allow-Origin', '*');
+        const clientIp = getClientIp(req);
+
+        // Rate limiting
+        if (isRateLimited(clientIp)) {
+          res.writeHead(429, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Muitas requisições. Tente novamente mais tarde.' }));
+          return;
+        }
+
+        // Security headers
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('X-Frame-Options', 'DENY');
+
+        // CORS — only allow same-origin / local network, never wildcard in production
+        const origin = req.headers.origin;
+        if (origin) {
+          const allowed = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)/.test(origin);
+          if (allowed) {
+            res.setHeader('Access-Control-Allow-Origin', origin);
+          }
+        }
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Authorization');
 
@@ -62,22 +101,32 @@ export class SyncService {
           return;
         }
 
-        if (req.url === '/sync' && req.method === 'GET') {
+        if (req.url === '/token' && req.method === 'GET') {
+          // Public endpoint — cashiers on LAN fetch token before calling /sync
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ token: syncToken }));
+        } else if (req.url === '/sync' && req.method === 'GET') {
           // Require Authorization: Bearer <token>
           const authHeader = req.headers['authorization'];
           if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            log.warn('Sync auth missing', { ip: clientIp });
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado' }));
             return;
           }
-          const token = authHeader.slice(7);
-          // Token payload is the sync secret itself — verifies this client connected to this server instance
-          if (!verifySyncToken(token, syncSecret)) {
+          const receivedToken = authHeader.slice(7);
+          // Verify lengths match before timingSafeEqual to avoid throws
+          const expectedToken = generateSyncToken(syncSecret);
+          const received = Buffer.from(receivedToken);
+          const expected = Buffer.from(expectedToken);
+          if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
+            log.warn('Sync auth invalid', { ip: clientIp });
             res.writeHead(403, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Token inválido' }));
             return;
           }
 
+          log.info('Sync data requested', { ip: clientIp });
           const payload = this.getSyncPayload();
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(payload));
@@ -102,8 +151,6 @@ export class SyncService {
         this.saveHostState(true);
       });
 
-      // Generate the sync token for clients to use
-      const syncToken = generateSyncToken(syncSecret);
       return { success: true, isHost: true, message: `Servidor de sincronização iniciado na porta ${SYNC_PORT}`, token: syncToken };
     } catch (error) {
       log.error('Failed to start server', { error: String(error) });
@@ -193,12 +240,32 @@ export class SyncService {
 
   /**
    * Pull data from admin server.
+   * If syncToken is not provided, fetches it from the /token endpoint first.
    */
   public async pullFromHost(address: string, syncToken?: string): Promise<{ success: boolean; message: string; data?: SyncPayload }> {
     try {
+      // Auto-fetch token from server if not provided (handles cross-machine cashier case)
+      let token = syncToken;
+      if (!token) {
+        try {
+          const tokenResponse = await fetch(`http://${address}:${SYNC_PORT}/token`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(5000),
+          });
+          if (tokenResponse.ok) {
+            const tokenData = await tokenResponse.json() as { token: string };
+            token = tokenData.token;
+            // Persist for future use
+            this.saveSyncToken(token);
+          }
+        } catch {
+          // Will attempt /sync without token and get a 401 — handled below
+        }
+      }
+
       const headers: Record<string, string> = {};
-      if (syncToken) {
-        headers['Authorization'] = `Bearer ${syncToken}`;
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
       const url = `http://${address}:${SYNC_PORT}/sync`;
@@ -280,14 +347,14 @@ export class SyncService {
     const db = DatabaseManager.getInstance();
 
     const applyAll = db.transaction(() => {
-      // Categories — upsert by id, preserve local children
+      // Categories — upsert by id, preserve local children; include config for dynamic fields
       {
         const upsert = db.prepare(`
-          INSERT OR REPLACE INTO categories (id, name, description, parent_id, created_at)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT OR REPLACE INTO categories (id, name, description, parent_id, config, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
         `);
         for (const c of data.categories) {
-          upsert.run(c.id, c.name, c.description, c.parent_id, c.created_at);
+          upsert.run(c.id, c.name, c.description, c.parent_id, c.config ?? '{}', c.created_at);
         }
       }
 

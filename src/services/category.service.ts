@@ -15,6 +15,11 @@ export interface PaginatedResult<T> {
   hasMore: boolean;
 }
 
+function parseCategory(row: any): Category {
+  const config = row.config ? JSON.parse(row.config) : null;
+  return { ...row, config };
+}
+
 export class CategoryService {
   private db: Database.Database;
 
@@ -31,23 +36,25 @@ export class CategoryService {
     const stmt = this.db.prepare(`
       SELECT * FROM categories ORDER BY name LIMIT ? OFFSET ?
     `);
-    const items = stmt.all(limit, offset) as unknown as Category[];
+    const rows = stmt.all(limit, offset) as any[];
+    const items = rows.map(parseCategory);
 
     return { items, total, limit, offset, hasMore: offset + items.length < total };
   }
 
   public findById(id: number): Category | undefined {
     const stmt = this.db.prepare('SELECT * FROM categories WHERE id = ?');
-    return stmt.get(id) as unknown as Category | undefined;
+    const row = stmt.get(id) as any;
+    return row ? parseCategory(row) : undefined;
   }
 
   public create(category: Omit<Category, 'id' | 'created_at'>): Category {
     const stmt = this.db.prepare(`
-      INSERT INTO categories (name, description, parent_id)
-      VALUES (?, ?, ?)
+      INSERT INTO categories (name, description, parent_id, config)
+      VALUES (?, ?, ?, ?)
     `);
 
-    const info = stmt.run(category.name, category.description, category.parent_id);
+    const info = stmt.run(category.name, category.description, category.parent_id, JSON.stringify(category.config || {}));
     return this.findById(info.lastInsertRowid as number) as Category;
   }
 
@@ -66,6 +73,10 @@ export class CategoryService {
     if (updates.parent_id !== undefined) {
       fields.push('parent_id = ?');
       values.push(updates.parent_id);
+    }
+    if (updates.config !== undefined) {
+      fields.push('config = ?');
+      values.push(JSON.stringify(updates.config));
     }
 
     values.push(id);

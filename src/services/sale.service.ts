@@ -37,7 +37,10 @@ export class SaleService {
           throw new Error(`Produto ${item.product_id} não encontrado`);
         }
 
-        if (product.stock < item.quantity) {
+        const productData = typeof product.data === 'string' ? JSON.parse(product.data) : product.data;
+        const isService = productData?.unit === 'servico' || productData?.type === 'banho-tosa';
+
+        if (!isService && product.stock < item.quantity) {
           throw new Error(`Estoque insuficiente para ${product.name}. Disponível: ${product.stock}`);
         }
 
@@ -59,11 +62,17 @@ export class SaleService {
           VALUES (?, ?, ?, ?, ?)
         `).run(saleId, item.product_id, item.quantity, item.unit_price, item.total);
 
-        this.db.prepare(`
-          UPDATE products
-          SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-        `).run(item.quantity, item.product_id);
+        const product = this.db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id) as any;
+        const productData = typeof product.data === 'string' ? JSON.parse(product.data) : product.data;
+        const isService = productData?.unit === 'servico' || productData?.type === 'banho-tosa';
+
+        if (!isService) {
+          this.db.prepare(`
+            UPDATE products
+            SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `).run(item.quantity, item.product_id);
+        }
       }
 
       return {
@@ -97,11 +106,16 @@ export class SaleService {
     }
 
     const transaction = this.db.transaction(() => {
-      // Restore stock for each item
+      // Restore stock for each item (skip services)
       const items = this.db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(saleId) as any[];
       for (const item of items) {
-        this.db.prepare('UPDATE products SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-          .run(item.quantity, item.product_id);
+        const product = this.db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id) as any;
+        const productData = typeof product.data === 'string' ? JSON.parse(product.data) : product.data;
+        const isService = productData?.unit === 'servico' || productData?.type === 'banho-tosa';
+        if (!isService) {
+          this.db.prepare('UPDATE products SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+            .run(item.quantity, item.product_id);
+        }
       }
 
       // Mark sale as cancelled
@@ -150,16 +164,20 @@ export class SaleService {
     const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
     const offset = Math.max(options.offset ?? 0, 0);
 
+    // Normalize plain YYYY-MM-DD dates to include full day range
+    const start = startDate.length === 10 ? startDate + ' 00:00:00' : startDate;
+    const end = endDate.length === 10 ? endDate + ' 23:59:59' : endDate;
+
     const total = (this.db.prepare(`
       SELECT COUNT(*) as total FROM sales WHERE created_at BETWEEN ? AND ?
-    `).get(startDate, endDate) as { total: number }).total;
+    `).get(start, end) as { total: number }).total;
 
     const rows = this.db.prepare(`
       SELECT * FROM sales
       WHERE created_at BETWEEN ? AND ?
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
-    `).all(startDate, endDate, limit, offset) as any[];
+    `).all(start, end, limit, offset) as any[];
 
     const items = rows.map(row => this.hydrateSale(row));
 
@@ -171,8 +189,11 @@ export class SaleService {
     const params: any[] = [];
 
     if (startDate && endDate) {
+      // Normalize plain YYYY-MM-DD dates to full datetime so BETWEEN includes all records on the end day
+      const start = startDate.length === 10 ? startDate + ' 00:00:00' : startDate;
+      const end = endDate.length === 10 ? endDate + ' 23:59:59' : endDate;
       whereClauses.push('s.created_at BETWEEN ? AND ?');
-      params.push(startDate, endDate);
+      params.push(start, end);
     }
 
     const whereClause = 'WHERE ' + whereClauses.join(' AND ');
@@ -210,13 +231,18 @@ export class SaleService {
     };
   }
 
+  private toSQLiteDate(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
   public getTodaySales(): Sale[] {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    return (this.findSalesByDate(today.toISOString(), tomorrow.toISOString()) as any).items;
+    return (this.findSalesByDate(this.toSQLiteDate(today), this.toSQLiteDate(tomorrow)) as any).items;
   }
 
   public getTodayRevenue(): number {
@@ -229,7 +255,7 @@ export class SaleService {
       SELECT COALESCE(SUM(total), 0) as revenue
       FROM sales
       WHERE created_at BETWEEN ? AND ? AND status = 'completed'
-    `).get(today.toISOString(), tomorrow.toISOString()) as { revenue: number };
+    `).get(this.toSQLiteDate(today), this.toSQLiteDate(tomorrow)) as { revenue: number };
 
     return result.revenue;
   }

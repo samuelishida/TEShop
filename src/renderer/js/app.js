@@ -4,6 +4,8 @@
 
 'use strict';
 
+console.log('[App] Starting... electronAPI available:', !!window.electronAPI);
+
 import { Utils } from './modules/utils.js';
 import { createToastModule } from './modules/toast.js';
 import { createModalModule } from './modules/modal.js';
@@ -20,13 +22,10 @@ import { createAuthModule } from './modules/auth.js';
 
 // --- Shared instances ---
 const { Toast } = createToastModule({});
-const Modal = createModalModule({});
+const { Modal } = createModalModule({});
 const Cart = createCartModule({ Utils, Toast }).Cart;
-const Dashboard = createDashboardModule({ Toast, Utils, Session }).Dashboard;
-const SyncStatus = createSyncModule({ Toast, Session }).SyncStatus;
-const Reports = createReportsModule({ Toast, Utils, Session }).Reports;
 
-// --- Session management (must be before Auth) ---
+// --- Session management (must be before modules that depend on it) ---
 const Session = {
   token: null,
   user: null,
@@ -64,12 +63,16 @@ const Session = {
   getUser() { return this.user; },
 };
 
+const Dashboard = createDashboardModule({ Toast, Utils, Session }).Dashboard;
+const SyncStatus = createSyncModule({ Toast, Session }).SyncStatus;
+const Reports = createReportsModule({ Toast, Utils, Session }).Reports;
+
 // --- Cross-refs: set these after creation ---
 const POS = { loadCategories: () => {} };
 const Categories = { loadCategories: () => {} };
 
 // POS needs Cart, Cart needs nothing special
-Object.assign(POS, createPOSModule({ Toast, Utils, Cart, Session }).POS);
+Object.assign(POS, createPOSModule({ Toast, Utils, Cart, Session, Dashboard }).POS);
 Cart._POS = POS; // let Cart know about POS for sync
 
 // Products needs Toast, Utils, Modal, Cart, Dashboard, SyncStatus, POS
@@ -81,8 +84,8 @@ Object.assign(Categories, createCategoriesModule({ Toast, Utils, Modal, POS, Ses
 // Users (before Navigation, since Navigation references it)
 const Users = createUsersModule({ Toast, Utils, Modal, Session }).Users;
 
-// Navigation needs all page modules
-const Navigation = createNavigationModule({ Toast, Utils, Cart, POS, Products, Categories, Reports, Users }).Navigation;
+// Navigation needs all page modules + Dashboard
+const Navigation = createNavigationModule({ Toast, Utils, Cart, POS, Products, Categories, Reports, Users, Dashboard }).Navigation;
 
 // Auth needs Navigation + SyncStatus + Session
 const Auth = createAuthModule({ Toast, Utils, Cart, Dashboard, SyncStatus, Navigation, Session }).Auth;
@@ -112,12 +115,15 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
 
 // --- Theme toggle ---
 document.getElementById('theme-toggle').addEventListener('change', (e) => {
-  document.body.classList.toggle('dark-theme', e.target.checked);
-  localStorage.setItem('theme', e.target.checked ? 'dark' : 'light');
+  const theme = e.target.checked ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
 });
 
-if (localStorage.getItem('theme') === 'dark') {
-  document.body.classList.add('dark-theme');
+// Restore saved theme
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme === 'dark') {
+  document.documentElement.setAttribute('data-theme', 'dark');
   document.getElementById('theme-toggle').checked = true;
 }
 
@@ -130,15 +136,20 @@ document.getElementById('manual-sync-btn').addEventListener('click', () => {
   SyncStatus.manualSync();
 });
 
-// --- Init all modules ---
-Navigation.init();
-Products.init();
-Categories.init();
-Reports.init();
-Users.init();
-POS.init();
+// --- Init all modules (attach event listeners) ---
+try {
+  Navigation.init();
+  Products.init();
+  POS.init();
+  Categories.init();
+  Users.init();
+  Reports.init();
+  console.log('[App] All modules initialized successfully');
+} catch (err) {
+  console.error('[App] Module init failed:', err);
+}
 Cart.render();
-Dashboard.load();
+// Dashboard.load() is called after login/restoreSession — not here
 
 // --- Prevent accidental navigation ---
 window.addEventListener('beforeunload', (e) => {

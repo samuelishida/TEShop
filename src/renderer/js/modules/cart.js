@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * @param {{ Utils: object }} deps
+ * @param {{ Utils: object, Toast: object }} deps
  */
 export function createCartModule(deps) {
   return {
@@ -9,22 +9,24 @@ export function createCartModule(deps) {
       items: [],
 
       add(product, qty = 1) {
+        const data = typeof product.data === 'string' ? JSON.parse(product.data) : (product.data || {});
+        const isService = data?.unit === 'servico' || data?.type === 'banho-tosa';
         const existing = this.items.find(item => item.product.id === product.id);
 
         if (existing) {
-          if (existing.qty + qty > product.stock) {
+          if (!isService && existing.qty + qty > product.stock) {
             deps.Toast.warning('Estoque insuficiente!');
             return false;
           }
           existing.qty += qty;
           existing.total = existing.qty * existing.price;
         } else {
-          if (qty > product.stock) {
+          if (!isService && qty > product.stock) {
             deps.Toast.warning('Estoque insuficiente!');
             return false;
           }
           this.items.push({
-            product: product,
+            product: { ...product },
             qty: qty,
             price: product.price,
             total: qty * product.price,
@@ -49,7 +51,9 @@ export function createCartModule(deps) {
           return;
         }
 
-        if (qty > item.product.stock) {
+        const data = typeof item.product.data === 'string' ? JSON.parse(item.product.data) : (item.product.data || {});
+        const isService = data?.unit === 'servico' || data?.type === 'banho-tosa';
+        if (!isService && qty > item.product.stock) {
           deps.Toast.warning('Estoque insuficiente!');
           return;
         }
@@ -123,14 +127,14 @@ export function createCartModule(deps) {
 
             const btnMinus = document.createElement('button');
             btnMinus.textContent = '−';
-            btnMinus.onclick = () => deps.Cart.decreaseQty(item.product.id);
+            btnMinus.onclick = () => this.decreaseQty(item.product.id);
 
             const qtySpan = document.createElement('span');
             qtySpan.textContent = String(item.qty);
 
             const btnPlus = document.createElement('button');
             btnPlus.textContent = '+';
-            btnPlus.onclick = () => deps.Cart.increaseQty(item.product.id);
+            btnPlus.onclick = () => this.increaseQty(item.product.id);
 
             qty.appendChild(btnMinus);
             qty.appendChild(qtySpan);
@@ -143,7 +147,7 @@ export function createCartModule(deps) {
             const remove = document.createElement('button');
             remove.className = 'cart-item-remove';
             remove.textContent = '🗑️';
-            remove.onclick = () => deps.Cart.remove(item.product.id);
+            remove.onclick = () => this.remove(item.product.id);
 
             div.appendChild(info);
             div.appendChild(qty);

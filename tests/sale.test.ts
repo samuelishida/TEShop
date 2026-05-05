@@ -12,9 +12,9 @@ import { SaleService } from '../src/services/sale.service';
 import { CategoryService } from '../src/services/category.service';
 import { AuthService } from '../src/services/auth.service';
 import { DatabaseManager } from '../src/database/connection';
-import { Product, SaleItem } from '../src/types';
+import { SaleItem } from '../src/types';
 
-// Helper to create a test database
+// --- Helper to create a test database ---
 function createTestDatabase(): Database.Database {
   const dbPath = join(tmpdir(), `eshop-test-${Date.now()}.db`);
   const db = new Database(dbPath);
@@ -43,6 +43,7 @@ function createTestDatabase(): Database.Database {
       name TEXT NOT NULL,
       description TEXT,
       parent_id INTEGER,
+      config TEXT NOT NULL DEFAULT '{}',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -506,7 +507,7 @@ describe('AuthService', () => {
     expect(result.success).toBe(true);
     expect(result.user).toBeDefined();
     expect(result.user?.username).toBe('admin');
-    expect(result.user?.password_hash).toBeUndefined();
+    expect((result.user as any)?.password_hash).toBeUndefined();
   });
 
   it('should reject invalid password', () => {
@@ -582,11 +583,11 @@ describe('JSONB Metadata Strategy', () => {
       },
     });
 
-    const found = productService.findById(product.id);
-    expect(found?.data.weight).toBe(15);
-    expect(found?.data.flavor).toBe('frango');
-    expect(found?.data.breed).toBe('todos');
-    expect(found?.data.life_stage).toBe('adulto');
+    const found = productService.findById(product.id) as any;
+    expect(found?.data?.weight).toBe(15);
+    expect(found?.data?.flavor).toBe('frango');
+    expect(found?.data?.breed).toBe('todos');
+    expect(found?.data?.life_stage).toBe('adulto');
   });
 
   it('should store clothing metadata (size, color, material)', () => {
@@ -604,10 +605,10 @@ describe('JSONB Metadata Strategy', () => {
       },
     });
 
-    const found = productService.findById(product.id);
-    expect(found?.data.size).toBe('M');
-    expect(found?.data.color).toBe('azul');
-    expect(found?.data.material).toBe('algodão');
+    const found = productService.findById(product.id) as any;
+    expect(found?.data?.size).toBe('M');
+    expect(found?.data?.color).toBe('azul');
+    expect(found?.data?.material).toBe('algodão');
   });
 
   it('should store electronics metadata (brand, warranty, voltage)', () => {
@@ -625,10 +626,10 @@ describe('JSONB Metadata Strategy', () => {
       },
     });
 
-    const found = productService.findById(product.id);
-    expect(found?.data.brand).toBe('Philips');
-    expect(found?.data.warranty_months).toBe(12);
-    expect(found?.data.voltage).toBe('110V');
+    const found = productService.findById(product.id) as any;
+    expect(found?.data?.brand).toBe('Philips');
+    expect(found?.data?.warranty_months).toBe(12);
+    expect(found?.data?.voltage).toBe('110V');
   });
 
   it('should update metadata without affecting other fields', () => {
@@ -643,10 +644,10 @@ describe('JSONB Metadata Strategy', () => {
 
     const updated = productService.update(product.id, {
       data: { flavor: 'carne', weight: 10 },
-    });
+    }) as any;
 
-    expect(updated?.data.flavor).toBe('carne');
-    expect(updated?.data.weight).toBe(10);
+    expect(updated?.data?.flavor).toBe('carne');
+    expect(updated?.data?.weight).toBe(10);
     expect(updated?.price).toBe(50.00); // Unchanged
     expect(updated?.stock).toBe(20); // Unchanged
   });

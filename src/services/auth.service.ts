@@ -4,6 +4,35 @@ import { DatabaseManager } from '../database/connection';
 import { AdminUser, LoginRequest } from '../types';
 import { SessionManager } from './session.service';
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+interface LoginAttempt {
+  count: number;
+  lockedUntil: number | null;
+}
+
+// In-memory store: username -> attempt info
+const loginAttempts = new Map<string, LoginAttempt>();
+
+function getAttempt(username: string): LoginAttempt {
+  return loginAttempts.get(username) ?? { count: 0, lockedUntil: null };
+}
+
+function recordFailure(username: string): LoginAttempt {
+  const attempt = getAttempt(username);
+  attempt.count++;
+  if (attempt.count >= MAX_LOGIN_ATTEMPTS) {
+    attempt.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
+  }
+  loginAttempts.set(username, attempt);
+  return attempt;
+}
+
+function resetAttempts(username: string): void {
+  loginAttempts.delete(username);
+}
+
 export class AuthService {
   private db: Database.Database;
   private sessions: SessionManager;
@@ -14,18 +43,38 @@ export class AuthService {
   }
 
   public login(credentials: LoginRequest): { success: boolean; user?: Omit<AdminUser, 'password_hash'>; token?: string; message?: string } {
-    const user = this.db.prepare('SELECT * FROM admin_users WHERE username = ?').get(credentials.username) as AdminUser | undefined;
+    const username = credentials.username;
+    const attempt = getAttempt(username);
+
+    if (attempt.lockedUntil && Date.now() < attempt.lockedUntil) {
+      const minutesLeft = Math.ceil((attempt.lockedUntil - Date.now()) / 60000);
+      return { success: false, message: `Conta bloqueada. Tente novamente em ${minutesLeft} minuto(s).` };
+    }
+
+    // Reset stale lockout
+    if (attempt.lockedUntil && Date.now() >= attempt.lockedUntil) {
+      resetAttempts(username);
+    }
+
+    const user = this.db.prepare('SELECT * FROM admin_users WHERE username = ?').get(username) as AdminUser | undefined;
 
     if (!user) {
+      recordFailure(username);
       return { success: false, message: 'Usuário ou senha inválidos' };
     }
 
     const isValid = bcrypt.compareSync(credentials.password, user.password_hash);
 
     if (!isValid) {
-      return { success: false, message: 'Usuário ou senha inválidos' };
+      const updated = recordFailure(username);
+      const remaining = MAX_LOGIN_ATTEMPTS - updated.count;
+      if (remaining > 0) {
+        return { success: false, message: `Usuário ou senha inválidos. ${remaining} tentativa(s) restante(s).` };
+      }
+      return { success: false, message: `Conta bloqueada por 15 minutos após ${MAX_LOGIN_ATTEMPTS} tentativas.` };
     }
 
+    resetAttempts(username);
     const token = this.sessions.create(user.id);
     const { password_hash, ...userWithoutPassword } = user;
     return { success: true, user: userWithoutPassword, token };
@@ -77,6 +126,10 @@ export class AuthService {
   }
 
   public createCashierUser(username: string, password: string): { success: boolean; message: string } {
+    return this.createUser(username, password, 'caixa');
+  }
+
+  public createUser(username: string, password: string, role: 'admin' | 'caixa'): { success: boolean; message: string } {
     const existing = this.db.prepare('SELECT id FROM admin_users WHERE username = ?').get(username);
     if (existing) {
       return { success: false, message: 'Nome de usuário já existe' };
@@ -84,8 +137,9 @@ export class AuthService {
 
     const salt = bcrypt.genSaltSync(12);
     const hash = bcrypt.hashSync(password, salt);
-    this.db.prepare('INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)').run(username, hash, 'caixa');
-    return { success: true, message: `Usuário caixa '${username}' criado com sucesso` };
+    this.db.prepare('INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)').run(username, hash, role);
+    const roleLabel = role === 'admin' ? 'Administrador' : 'Caixa';
+    return { success: true, message: `Usuário '${username}' (${roleLabel}) criado com sucesso` };
   }
 
   public listUsers(): Omit<AdminUser, 'password_hash'>[] {

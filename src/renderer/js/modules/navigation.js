@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * @param {{ Toast: object, Utils: object, POS: object, Products: object, Categories: object, Reports: object, Users: object }} deps
+ * @param {{ Toast: object, Utils: object, POS: object, Products: object, Categories: object, Reports: object, Users: object, Dashboard: object }} deps
  */
 export function createNavigationModule(deps) {
   return {

@@ -1,0 +1,17 @@
+id,category,name,price,unit,description,tags,image
+racao-carne,Ração para Cães a Granel,Ração Carne (granel),A consultar,kg,Ração sabor carne para cães adultos,"cães, granel, carne",images/racao_carne.jpg
+racao-frango,Ração para Cães a Granel,Ração Frango (granel),A consultar,kg,Ração sabor frango para cães adultos,"cães, granel, frango",images/racao_frango.jpg
+sache-caes-carne,Ração para Cães a Granel,Sachê Cães Carne,A consultar,unidade,Sachê sabor carne para cães,"cães, sachê, carne",images/sache_caes_carne.jpg
+sache-caes-frango,Ração para Cães a Granel,Sachê Cães Frango,A consultar,unidade,Sachê sabor frango para cães,"cães, sachê, frango",images/sache_caes_frango.jpg
+rg-peixe,Rações de Gato a Granel,Ração Gatos Peixe (granel),A consultar,kg,Ração sabor peixe para gatos,"gatos, granel, peixe",images/racao_gato_peixe.jpg
+rg-frango,Rações de Gato a Granel,Ração Gatos Frango (granel),A consultar,kg,Ração sabor frango para gatos,"gatos, granel, frango",images/racao_gato_frango.jpg
+sache-gatos,Rações de Gato a Granel,Sachê de Gatos,A consultar,unidade,Sachê úmido para gatos,"gatos, sachê",images/sache_gatos.jpg
+petiscos-gatos,Rações de Gato a Granel,Petiscos para Gato,A consultar,pacote,Petiscos e snacks para gatos,"gatos, petiscos, snacks",images/petiscos_gatos.jpg
+areia-tradicional,Areia Higiênica e Granulado,Areia Higiênica Tradicional,A consultar,2kg,Areia higiênica para gatos - pacote 2kg,"gatos, higiene, areia",images/areia_tradicional.jpg
+granulado-madeira,Areia Higiênica e Granulado,Granulado Higiênico de Madeira,18.90,2kg,Granulado higiênico de madeira biodegradável - pacote 2kg,"gatos, higiene, granulado, ecológico",images/granulado_madeira.jpg
+rp-calopsita,Produtos para Pássaros,Ração p/ Pássaro a Granel,A consultar,kg,Ração mista para calopsitas e pássaros pequenos,"pássaros, calopsita, granel",images/racao_passaro.jpg
+bastoes-calopsita,Produtos para Pássaros,Bastões de Calopsita e Pássaro,A consultar,pacote,Bastões de semente e mel para calopsitas,"pássaros, calopsita, bastão, petisco",images/bastoes_calopsita.jpg
+bebedouros,Produtos para Pássaros,Bebedouros,A consultar,unidade,Bebedouros para pássaros e pequenos animais,"pássaros, acessórios, bebedouro",images/bebedouros.jpg
+vermifugo,Saúde e Medicamentos,Vermífugo,A consultar,comprimido/dose,Vermífugo para cães e gatos,"saúde, medicamento, vermífugo, cães, gatos",images/vermifugo.jpg
+banho-tosa,Serviços,Banho e Tosa,A consultar,serviço,Banho e tosa completa para cães e gatos. Agendamento por WhatsApp.,"serviço, banho, tosa, higiene",images/banho_tosa.jpg
+acessorios,Serviços,Acessórios para Pets,A consultar,unidade,Coleiras camas brinquedos potes e outros acessórios.,"acessórios, coleira, brinquedo, cama",images/acessorios.jpg

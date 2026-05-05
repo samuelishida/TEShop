@@ -12,25 +12,37 @@ export function createReportsModule(deps) {
 
         const startInput = document.getElementById('report-start-date');
         const endInput = document.getElementById('report-end-date');
-        if (startInput) startInput.value = firstDay.toISOString().split('T')[0];
-        if (endInput) endInput.value = today.toISOString().split('T')[0];
+        if (startInput && !startInput.value) startInput.value = firstDay.toISOString().split('T')[0];
+        if (endInput && !endInput.value) endInput.value = today.toISOString().split('T')[0];
       },
 
       async init() {
-        document.getElementById('generate-report-btn').addEventListener('click', () => {
-          this.generateReport();
-        });
+        const btn = document.getElementById('generate-report-btn');
+        if (btn) btn.addEventListener('click', () => this.generateReport());
 
         this.setDefaultDates();
       },
 
       async generateReport() {
-        const startDate = document.getElementById('report-start-date').value;
-        const endDate = document.getElementById('report-end-date').value;
+        const startInput = document.getElementById('report-start-date');
+        const endInput = document.getElementById('report-end-date');
+        const startDate = startInput?.value;
+        const endDate = endInput?.value;
 
         if (!startDate || !endDate) {
-          deps.Toast.warning('Selecione as datas');
+          deps.Toast.warning('Selecione as datas de início e fim');
           return;
+        }
+
+        if (startDate > endDate) {
+          deps.Toast.warning('Data de início não pode ser maior que a data fim');
+          return;
+        }
+
+        const btn = document.getElementById('generate-report-btn');
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Gerando...';
         }
 
         try {
@@ -40,16 +52,16 @@ export function createReportsModule(deps) {
           const totalRevenue = document.getElementById('report-total-revenue');
           const dailyAverage = document.getElementById('report-daily-average');
 
-          if (totalSales) totalSales.textContent = String(report.total_sales || report.totalSales || 0);
-          if (totalRevenue) totalRevenue.textContent = deps.Utils.formatCurrency(report.total_revenue || report.totalRevenue || 0);
-          if (dailyAverage) dailyAverage.textContent = deps.Utils.formatCurrency(report.daily_average || report.dailyAverage || 0);
+          if (totalSales) totalSales.textContent = String(report.total_sales ?? 0);
+          if (totalRevenue) totalRevenue.textContent = deps.Utils.formatCurrency(report.total_revenue ?? 0);
+          if (dailyAverage) dailyAverage.textContent = deps.Utils.formatCurrency(report.daily_average ?? 0);
 
           const tbody = document.querySelector('#top-products-table tbody');
           if (!tbody) return;
 
           tbody.textContent = '';
 
-          const topProducts = report.top_products || report.topProducts || [];
+          const topProducts = report.top_products ?? [];
 
           if (topProducts.length === 0) {
             const tr = document.createElement('tr');
@@ -57,8 +69,11 @@ export function createReportsModule(deps) {
             td.textContent = 'Nenhum produto vendido no período';
             td.colSpan = 3;
             td.style.textAlign = 'center';
+            td.style.padding = '1rem';
+            td.style.color = 'var(--text-secondary)';
             tr.appendChild(td);
             tbody.appendChild(tr);
+            deps.Toast.info('Nenhuma venda encontrada no período selecionado');
             return;
           }
 
@@ -66,13 +81,13 @@ export function createReportsModule(deps) {
             const tr = document.createElement('tr');
 
             const nameTd = document.createElement('td');
-            nameTd.textContent = p.name || p.product_name || '';
+            nameTd.textContent = p.name ?? '';
 
             const qtyTd = document.createElement('td');
-            qtyTd.textContent = String(p.quantity || p.total_quantity || 0);
+            qtyTd.textContent = String(p.quantity ?? 0);
 
             const revTd = document.createElement('td');
-            revTd.textContent = deps.Utils.formatCurrency(p.revenue || p.total_revenue || 0);
+            revTd.textContent = deps.Utils.formatCurrency(p.revenue ?? 0);
 
             tr.appendChild(nameTd);
             tr.appendChild(qtyTd);
@@ -80,10 +95,15 @@ export function createReportsModule(deps) {
             tbody.appendChild(tr);
           }
 
-          deps.Toast.success('Relatório gerado!');
+          deps.Toast.success(`Relatório gerado: ${report.total_sales ?? 0} venda(s)`);
         } catch (error) {
           console.error('Generate report error:', error);
-          deps.Toast.error('Erro ao gerar relatório');
+          deps.Toast.error('Erro ao gerar relatório. Verifique sua sessão e tente novamente.');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Gerar Relatório';
+          }
         }
       },
     },

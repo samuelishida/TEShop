@@ -10,26 +10,30 @@ export function createCategoriesModule(deps) {
       editingId: null,
 
       async init() {
-        document.getElementById('add-category-btn').addEventListener('click', () => {
-          this.openCategoryModal();
-        });
+        const addBtn = document.getElementById('add-category-btn');
+        if (addBtn) addBtn.addEventListener('click', () => this.openCategoryModal());
 
-        document.getElementById('category-form').addEventListener('submit', (e) => {
+        const form = document.getElementById('category-form');
+        if (form) form.addEventListener('submit', (e) => {
           e.preventDefault();
           this.saveCategory();
         });
 
-        document.querySelector('#category-modal .modal-close').addEventListener('click', () => {
-          deps.Modal.close('category-modal');
-        });
-        document.querySelector('#category-modal .modal-cancel').addEventListener('click', () => {
-          deps.Modal.close('category-modal');
-        });
+        const closeBtn = document.querySelector('#category-modal .modal-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => deps.Modal.close('category-modal'));
+        const cancelBtn = document.querySelector('#category-modal .modal-cancel');
+        if (cancelBtn) cancelBtn.addEventListener('click', () => deps.Modal.close('category-modal'));
       },
 
       async load() {
         try {
-          this.allCategories = await window.electronAPI.findAllCategories(deps.Session.getToken());
+          const result = await window.electronAPI.findAllCategories(deps.Session.getToken());
+          const categories = Array.isArray(result) ? result : (result?.data || []);
+          if (categories.length === 0 && result?.error) {
+            deps.Toast.error(result.error);
+            return;
+          }
+          this.allCategories = categories;
           this.renderTable();
         } catch (error) {
           console.error('Load categories error:', error);
@@ -68,12 +72,12 @@ export function createCategoriesModule(deps) {
           const editBtn = document.createElement('button');
           editBtn.className = 'btn btn-sm btn-outline';
           editBtn.textContent = '✏️';
-          editBtn.onclick = () => deps.Categories.edit(cat.id);
+          editBtn.onclick = () => this.edit(cat.id);
 
           const delBtn = document.createElement('button');
           delBtn.className = 'btn btn-sm btn-danger';
           delBtn.textContent = '🗑️';
-          delBtn.onclick = () => deps.Categories.remove(cat.id);
+          delBtn.onclick = () => this.remove(cat.id);
 
           actionsTd.appendChild(editBtn);
           actionsTd.appendChild(delBtn);

@@ -1,0 +1,198 @@
+{
+  "store": {
+    "name": "Tana's Pet Store",
+    "phone": "+55 11 96645-7877",
+    "email": "tanaspetstore@gmail.com",
+    "description": "Pet shop com banho e tosa, acessórios para pets, rações a granel e enlatados.",
+    "payment_methods": ["Pix", "Cartão"],
+    "delivery": "Entrega local disponível"
+  },
+  "categories": [
+    {
+      "id": "racao-caes",
+      "name": "Ração para Cães a Granel",
+      "description": "Ração de alta qualidade vendida por peso. Variedades de carne, frango e mix.",
+      "products": [
+        {
+          "id": "rc-carne",
+          "name": "Ração Carne (granel)",
+          "price_per_kg": null,
+          "unit": "kg",
+          "description": "Ração sabor carne para cães adultos",
+          "image": "images/racao_carne.jpg",
+          "tags": ["cães", "granel", "carne"]
+        },
+        {
+          "id": "rc-frango",
+          "name": "Ração Frango (granel)",
+          "price_per_kg": null,
+          "unit": "kg",
+          "description": "Ração sabor frango para cães adultos",
+          "image": "images/racao_frango.jpg",
+          "tags": ["cães", "granel", "frango"]
+        },
+        {
+          "id": "sache-caes-carne",
+          "name": "Sachê Cães Carne",
+          "price": null,
+          "unit": "unidade",
+          "description": "Sachê sabor carne para cães",
+          "image": "images/sache_caes_carne.jpg",
+          "tags": ["cães", "sachê", "carne"]
+        },
+        {
+          "id": "sache-caes-frango",
+          "name": "Sachê Cães Frango",
+          "price": null,
+          "unit": "unidade",
+          "description": "Sachê sabor frango para cães",
+          "image": "images/sache_caes_frango.jpg",
+          "tags": ["cães", "sachê", "frango"]
+        }
+      ]
+    },
+    {
+      "id": "racao-gatos",
+      "name": "Rações de Gato a Granel",
+      "description": "Ração para gatos vendida por peso. Variedades de peixe, frango e mix.",
+      "products": [
+        {
+          "id": "rg-peixe",
+          "name": "Ração Gatos Peixe (granel)",
+          "price_per_kg": null,
+          "unit": "kg",
+          "description": "Ração sabor peixe para gatos",
+          "image": "images/racao_gato_peixe.jpg",
+          "tags": ["gatos", "granel", "peixe"]
+        },
+        {
+          "id": "rg-frango",
+          "name": "Ração Gatos Frango (granel)",
+          "price_per_kg": null,
+          "unit": "kg",
+          "description": "Ração sabor frango para gatos",
+          "image": "images/racao_gato_frango.jpg",
+          "tags": ["gatos", "granel", "frango"]
+        },
+        {
+          "id": "sache-gatos",
+          "name": "Sachê de Gatos",
+          "price": null,
+          "unit": "unidade",
+          "description": "Sachê úmido para gatos",
+          "image": "images/sache_gatos.jpg",
+          "tags": ["gatos", "sachê"]
+        },
+        {
+          "id": "petiscos-gatos",
+          "name": "Petiscos para Gato",
+          "price": null,
+          "unit": "pacote",
+          "description": "Petiscos e snacks para gatos",
+          "image": "images/petiscos_gatos.jpg",
+          "tags": ["gatos", "petiscos", "snacks"]
+        }
+      ]
+    },
+    {
+      "id": "areia-higienica",
+      "name": "Areia Higiênica e Granulado",
+      "description": "Areia higiênica e granulado sanitário para gatos. Pacotes de 2kg.",
+      "products": [
+        {
+          "id": "areia-tradicional",
+          "name": "Areia Higiênica Tradicional",
+          "price": null,
+          "unit": "2kg",
+          "description": "Areia higiênica para gatos - pacote 2kg",
+          "image": "images/areia_tradicional.jpg",
+          "tags": ["gatos", "higiene", "areia"]
+        },
+        {
+          "id": "granulado-madeira",
+          "name": "Granulado Higiênico de Madeira",
+          "price": 18.90,
+          "unit": "2kg",
+          "description": "Granulado higiênico de madeira biodegradável - pacote 2kg",
+          "image": "images/granulado_madeira.jpg",
+          "tags": ["gatos", "higiene", "granulado", "ecológico"]
+        }
+      ]
+    },
+    {
+      "id": "passaros",
+      "name": "Produtos para Pássaros",
+      "description": "Ração a granel, bastões e acessórios para calopsitas e pássaros.",
+      "products": [
+        {
+          "id": "rp-calopsita",
+          "name": "Ração p/ Pássaro a Granel",
+          "price_per_kg": null,
+          "unit": "kg",
+          "description": "Ração mista para calopsitas e pássaros pequenos",
+          "image": "images/racao_passaro.jpg",
+          "tags": ["pássaros", "calopsita", "granel"]
+        },
+        {
+          "id": "bastoes-calopsita",
+          "name": "Bastões de Calopsita e Pássaro",
+          "price": null,
+          "unit": "pacote",
+          "description": "Bastões de semente e mel para calopsitas",
+          "image": "images/bastoes_calopsita.jpg",
+          "tags": ["pássaros", "calopsita", "bastão", "petisco"]
+        },
+        {
+          "id": "bebedouros",
+          "name": "Bebedouros",
+          "price": null,
+          "unit": "unidade",
+          "description": "Bebedouros para pássaros e pequenos animais",
+          "image": "images/bebedouros.jpg",
+          "tags": ["pássaros", "acessórios", "bebedouro"]
+        }
+      ]
+    },
+    {
+      "id": "saude",
+      "name": "Saúde e Medicamentos",
+      "description": "Vermífugos e produtos de saúde para pets.",
+      "products": [
+        {
+          "id": "vermifugo",
+          "name": "Vermífugo",
+          "price": null,
+          "unit": "comprimido/dose",
+          "description": "Vermífugo para cães e gatos",
+          "image": "images/vermifugo.jpg",
+          "tags": ["saúde", "medicamento", "vermífugo", "cães", "gatos"]
+        }
+      ]
+    },
+    {
+      "id": "servicos",
+      "name": "Serviços",
+      "description": "Serviços presenciais oferecidos pelo pet shop.",
+      "products": [
+        {
+          "id": "banho-tosa",
+          "name": "Banho e Tosa",
+          "price": null,
+          "unit": "serviço",
+          "description": "Banho e tosa completa para cães e gatos. Agendamento por WhatsApp.",
+          "image": "images/banho_tosa.jpg",
+          "tags": ["serviço", "banho", "tosa", "higiene"]
+        },
+        {
+          "id": "acessorios",
+          "name": "Acessórios para Pets",
+          "price": null,
+          "unit": "unidade",
+          "description": "Coleiras, camas, brinquedos, potes e outros acessórios.",
+          "image": "images/acessorios.jpg",
+          "tags": ["acessórios", "coleira", "brinquedo", "cama"]
+        }
+      ]
+    }
+  ]
+}

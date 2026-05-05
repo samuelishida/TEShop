@@ -36,7 +36,23 @@ export interface Category {
   name: string;
   description?: string;
   parent_id?: number | null;
+  config?: CategoryConfig | null;
   created_at: string;
+}
+
+export interface CategoryConfig {
+  fields?: CategoryField[];
+  unit?: string;
+  [key: string]: any;
+}
+
+export interface CategoryField {
+  id: string;
+  label: string;
+  type: 'text' | 'number' | 'select' | 'textarea';
+  options?: { value: string; label: string }[];
+  placeholder?: string;
+  required?: boolean;
 }
 
 export interface SaleItem {

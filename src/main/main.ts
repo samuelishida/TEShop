@@ -18,6 +18,8 @@ import {
   CategoryCreateSchema,
   CategoryUpdateSchema,
   CreateCashierSchema,
+  CreateUserSchema,
+  ChangePasswordSchema,
   IdSchema,
   PaginationSchema,
   LowStockSchema,
@@ -39,6 +41,7 @@ function getLocalIP(): string | null {
 
 async function createWindow() {
   const preloadPath = join(__dirname, '../preload/preload.js');
+  log.info('Preload path: ' + preloadPath);
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -57,6 +60,15 @@ async function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
   }
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    log.info('Renderer finished loading');
+  });
+
+  mainWindow.webContents.on('console-message', (_event, level, message) => {
+    const levels = ['debug', 'log', 'warn', 'error'];
+    log.info(`[Renderer ${levels[level] || level}] ${message}`);
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -79,18 +91,17 @@ function safeHandler<T>(handler: () => T): T {
 
 /**
  * Auth guard for IPC handlers.
- * Validates the token passed as the first argument (or in a dedicated field)
- * before allowing the handler to execute.
- * Returns { success: false, error: 'Não autenticado' } if token is missing/invalid.
+ * Validates the token passed as the first argument before allowing the handler to execute.
+ * Throws an error if token is missing/invalid so the frontend try/catch can handle it.
  */
-function requireAuth<T>(handler: (userId: number) => T): (token: unknown, ...rest: unknown[]) => T | { success: false; error: string } {
+function requireAuth<T>(handler: (userId: number) => T): (token: unknown, ...rest: unknown[]) => T {
   return (token: unknown, ..._rest: unknown[]) => {
     if (typeof token !== 'string' || !token) {
-      return { success: false, error: 'Não autenticado' };
+      throw new Error('Não autenticado');
     }
     const result = authService.validateToken(token);
     if (!result.valid || !result.userId) {
-      return { success: false, error: 'Não autenticado' };
+      throw new Error('Sessão expirada. Faça login novamente.');
     }
     return safeHandler(() => handler(result.userId!));
   };
@@ -158,6 +169,20 @@ function setupIPC() {
     })(token, username, password);
   });
 
+  ipcMain.handle('auth:createUser', async (_event, token: unknown, username: unknown, password: unknown, role: unknown) => {
+    return requireAuth((_userId) => {
+      const data = validate(CreateUserSchema, { username, password, role }, 'auth:createUser');
+      return authService.createUser(data.username, data.password, data.role);
+    })(token, username, password, role);
+  });
+
+  ipcMain.handle('auth:changePassword', async (_event, token: unknown, oldPassword: unknown, newPassword: unknown) => {
+    return requireAuth((userId) => {
+      const data = validate(ChangePasswordSchema, { oldPassword, newPassword }, 'auth:changePassword');
+      return authService.changePassword(userId, data.oldPassword, data.newPassword);
+    })(token, oldPassword, newPassword);
+  });
+
   ipcMain.handle('auth:listUsers', async (_event, token: unknown) => {
     return requireAuth((_userId) => authService.listUsers())(token);
   });
@@ -173,7 +198,8 @@ function setupIPC() {
   ipcMain.handle('product:findAll', async (_event, token: unknown, options: unknown) => {
     return requireAuth((_userId) => {
       const opts = options ? validate(PaginationSchema, options, 'product:findAll') : {};
-      return productService.findAll(opts);
+      const result = productService.findAll(opts);
+      return { data: result.items, total: result.total };
     })(token, options);
   });
 
@@ -197,17 +223,19 @@ function setupIPC() {
     return requireAuth((_userId) => {
       const idData = validate(IdSchema, { id: categoryId }, 'product:findByCategory');
       const opts = options ? validate(PaginationSchema, options, 'product:findByCategory') : {};
-      return productService.findByCategory(idData.id, opts);
+      const result = productService.findByCategory(idData.id, opts);
+      return { data: result.items, total: result.total };
     })(token, categoryId, options);
   });
 
   ipcMain.handle('product:search', async (_event, token: unknown, query: unknown, options: unknown) => {
     return requireAuth((_userId) => {
       if (typeof query !== 'string') {
-        return { items: [], total: 0, limit: 100, offset: 0, hasMore: false };
+        return { data: [], total: 0 };
       }
       const opts = options ? validate(PaginationSchema, options, 'product:search') : {};
-      return productService.search(query, opts);
+      const result = productService.search(query, opts);
+      return { data: result.items, total: result.total };
     })(token, query, options);
   });
 
@@ -233,6 +261,69 @@ function setupIPC() {
     })(token, id);
   });
 
+  ipcMain.handle('product:bulkCreate', async (_event, token: unknown, csvData: unknown) => {
+    return requireAuth((_userId) => {
+      if (typeof csvData !== 'string' || !csvData.trim()) {
+        return { success: false, message: 'CSV vazio ou inválido' };
+      }
+      const lines = csvData.trim().split('\n');
+      if (lines.length < 2) {
+        return { success: false, message: 'CSV deve conter cabeçalho e pelo menos uma linha de dados' };
+      }
+      const header = lines[0].toLowerCase().trim();
+      if (!header.includes('sku') || !header.includes('name') || !header.includes('price')) {
+        return { success: false, message: 'Cabeçalho CSV inválido. Esperado: sku,name,category_id,price,stock' };
+      }
+
+      const results = { created: 0, failed: 0, errors: [] as string[] };
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const cols = line.split(',').map(c => c.trim());
+        if (cols.length < 4) {
+          results.failed++;
+          results.errors.push(`Linha ${i + 1}: colunas insuficientes`);
+          continue;
+        }
+        const [sku, name, categoryIdStr, priceStr, stockStr] = cols;
+        if (!sku || !name || !priceStr) {
+          results.failed++;
+          results.errors.push(`Linha ${i + 1}: SKU, nome e preço são obrigatórios`);
+          continue;
+        }
+        try {
+          const categoryId = categoryIdStr ? parseInt(categoryIdStr) : null;
+          const price = parseFloat(priceStr);
+          const stock = stockStr ? parseInt(stockStr) : 0;
+          if (isNaN(price) || price < 0) {
+            results.failed++;
+            results.errors.push(`Linha ${i + 1}: preço inválido`);
+            continue;
+          }
+          if (isNaN(stock) || stock < 0) {
+            results.failed++;
+            results.errors.push(`Linha ${i + 1}: estoque inválido`);
+            continue;
+          }
+          productService.create({ sku, name, category_id: categoryId, price, stock, data: {} });
+          results.created++;
+        } catch (err: any) {
+          results.failed++;
+          results.errors.push(`Linha ${i + 1}: ${err.message || err}`);
+        }
+      }
+
+      return {
+        success: results.created > 0,
+        message: `${results.created} produto(s) criado(s), ${results.failed} falha(s)`,
+        created: results.created,
+        failed: results.failed,
+        errors: results.errors.slice(0, 10), // limit errors
+      };
+    })(token, csvData);
+  });
+
   ipcMain.handle('product:getLowStock', async (_event, token: unknown, threshold: unknown) => {
     return requireAuth((_userId) => {
       const data = validate(LowStockSchema, { threshold }, 'product:getLowStock');
@@ -255,7 +346,8 @@ function setupIPC() {
   ipcMain.handle('sale:findRecent', async (_event, token: unknown, options: unknown) => {
     return requireAuth((_userId) => {
       const opts = options ? validate(PaginationSchema, options, 'sale:findRecent') : {};
-      return saleService.findRecentSales(opts);
+      const result = saleService.findRecentSales(opts);
+      return { data: result.items, total: result.total };
     })(token, options);
   });
 
@@ -263,7 +355,8 @@ function setupIPC() {
     return requireAuth((_userId) => {
       const dateData = validate(SaleFindByDateSchema, { startDate, endDate }, 'sale:findSalesByDate');
       const opts = options ? validate(PaginationSchema, options, 'sale:findSalesByDate') : {};
-      return saleService.findSalesByDate(dateData.startDate, dateData.endDate, opts);
+      const result = saleService.findSalesByDate(dateData.startDate, dateData.endDate, opts);
+      return { data: result.items, total: result.total };
     })(token, startDate, endDate, options);
   });
 
@@ -295,7 +388,8 @@ function setupIPC() {
   ipcMain.handle('category:findAll', async (_event, token: unknown, options: unknown) => {
     return requireAuth((_userId) => {
       const opts = options ? validate(PaginationSchema, options, 'category:findAll') : {};
-      return categoryService.findAll(opts);
+      const result = categoryService.findAll(opts);
+      return { data: result.items, total: result.total };
     })(token, options);
   });
 
@@ -386,7 +480,8 @@ function setupIPC() {
       if (typeof address !== 'string' || !address.trim()) {
         return { success: false, message: 'Endereço inválido' };
       }
-      syncService.saveHostState(true, address.trim());
+      // isHost=false: only the admin machine is a host, cashier is saving the admin's address
+      syncService.saveHostState(false, address.trim());
       return { success: true };
     })(token, address);
   });

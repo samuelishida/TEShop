@@ -13,6 +13,13 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    hmr: {
+      overlay: false,
+    },
+    watch: {
+      usePolling: true,
+      interval: 500,
+    },
   },
   resolve: {
     alias: {
