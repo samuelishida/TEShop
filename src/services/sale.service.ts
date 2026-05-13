@@ -204,10 +204,13 @@ export class SaleService {
     const whereClauses = ["s.status = 'completed'"];
     const params: any[] = [];
 
+    let start: string | undefined;
+    let end: string | undefined;
+
     if (startDate && endDate) {
       // Normalize plain YYYY-MM-DD dates to full datetime so BETWEEN includes all records on the end day
-      const start = startDate.length === 10 ? startDate + ' 00:00:00' : startDate;
-      const end = endDate.length === 10 ? endDate + ' 23:59:59' : endDate;
+      start = startDate.length === 10 ? startDate + ' 00:00:00' : startDate;
+      end = endDate.length === 10 ? endDate + '23:59:59' : endDate;
       whereClauses.push('s.created_at BETWEEN ? AND ?');
       params.push(start, end);
     }
@@ -233,10 +236,16 @@ export class SaleService {
       LIMIT 10
     `).all(...params) as Array<{ name: string; quantity: number; revenue: number }>;
 
-    const days = startDate && endDate
-      ? Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 3600 * 24)))
-      : 1;
-
+    // Count distinct days in the date range using SQLite (only when dates are provided)
+    let days = 1;
+    if (startDate && endDate && start && end) {
+      const daysResult = this.db.prepare(`
+        SELECT COUNT(DISTINCT DATE(created_at)) as days
+        FROM sales
+        WHERE created_at BETWEEN ? AND ?
+      `).get(start, end) as { days: number };
+      days = daysResult.days || 1;
+    }
     const daily_average = total_revenue / days;
 
     return {

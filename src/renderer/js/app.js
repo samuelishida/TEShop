@@ -111,6 +111,7 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   Session.clear();
   SyncStatus.destroy();
   Auth.logout();
+  Cart.clear();
 });
 
 // --- Theme toggle ---

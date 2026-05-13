@@ -127,6 +127,8 @@ export function createCategoriesModule(deps) {
           deps.Modal.close('category-modal');
           await this.load();
           await deps.POS.loadCategories();
+          // Notify Products to refresh its categories cache
+          if (deps.Products) deps.Products.load();
         } catch (error) {
           console.error('Save category error:', error);
           deps.Toast.error('Erro ao salvar categoria: ' + (error.message || error));

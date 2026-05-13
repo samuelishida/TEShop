@@ -484,13 +484,13 @@ describe('AuthService', () => {
     restore = mockDatabaseManager(db);
     authService = new AuthService();
 
-    // Create a test user
+    // Create a test user with role column
     const bcrypt = require('bcryptjs');
     const salt = bcrypt.genSaltSync(10);
     const hash = bcrypt.hashSync('admin123', salt);
 
-    db.prepare('INSERT INTO admin_users (username, password_hash) VALUES (?, ?)')
-      .run('admin', hash);
+    db.prepare('INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)')
+      .run('admin', hash, 'admin');
   });
 
   afterEach(() => {

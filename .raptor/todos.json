@@ -1,32 +1,22 @@
 [
   {
+    "content": "Explore codebase context for all 12 bugs",
     "id": "1",
-    "status": "completed",
-    "title": "Fix session expiry datetime format mismatch (ISO 8601 vs SQLite datetime)"
+    "status": "completed"
   },
   {
+    "content": "Write plan-large to .plans directory",
     "id": "2",
-    "status": "completed",
-    "title": "Fix sync user insert NOT NULL constraint violation"
+    "status": "completed"
   },
   {
+    "content": "Run plan-reviewer subagent and apply findings",
     "id": "3",
-    "status": "completed",
-    "title": "Fix CSV bulk import to parse unit and description columns"
+    "status": "in_progress"
   },
   {
+    "content": "Present improved plan to user",
     "id": "4",
-    "status": "completed",
-    "title": "Fix CSV import UTF-8 BOM handling"
-  },
-  {
-    "id": "5",
-    "status": "completed",
-    "title": "Fix sync server start reporting success before actually listening"
-  },
-  {
-    "id": "6",
-    "status": "completed",
-    "title": "Run build and tests to verify all fixes"
+    "status": "pending"
   }
 ]

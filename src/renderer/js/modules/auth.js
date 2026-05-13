@@ -73,6 +73,7 @@ export function createAuthModule(deps) {
         document.getElementById('login-screen').classList.add('active');
         document.getElementById('login-form').reset();
         document.getElementById('login-error').textContent = '';
+        if (deps.Cart) deps.Cart.clear();
       },
     },
   };

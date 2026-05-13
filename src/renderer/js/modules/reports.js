@@ -8,12 +8,18 @@ export function createReportsModule(deps) {
     Reports: {
       setDefaultDates() {
         const today = new Date();
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        // Use local date components to avoid timezone shifts
+        const localDate = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate()
+        );
+        const firstDay = new Date(localDate.getFullYear(), localDate.getMonth(), 1);
 
         const startInput = document.getElementById('report-start-date');
         const endInput = document.getElementById('report-end-date');
-        if (startInput && !startInput.value) startInput.value = firstDay.toISOString().split('T')[0];
-        if (endInput && !endInput.value) endInput.value = today.toISOString().split('T')[0];
+        if (startInput && !startInput.value) startInput.value = localDate.toISOString().split('T')[0];
+        if (endInput && !endInput.value) endInput.value = localDate.toISOString().split('T')[0];
       },
 
       async init() {
