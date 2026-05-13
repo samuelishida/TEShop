@@ -133,13 +133,13 @@ function setupIPC() {
 
   // Auth
   ipcMain.handle('auth:login', async (_event, credentials: unknown) => {
-    return safeHandler(() => {
+    return safeHandler(async () => {
       const data = validate(LoginSchema, credentials, 'auth:login');
       const result = authService.login(data);
       if (result.success && result.user && result.token) {
         if (result.user.role === 'admin') {
           const localIP = getLocalIP();
-          const serverResult = syncService.startServer();
+          const serverResult = await syncService.startServer();
           // Save the sync token so cashiers can use it
           if (serverResult.token) {
             syncService.saveSyncToken(serverResult.token);
@@ -287,9 +287,10 @@ function setupIPC() {
       if (lines.length < 2) {
         return { success: false, message: 'CSV deve conter cabeçalho e pelo menos uma linha de dados' };
       }
-      const header = lines[0].toLowerCase().trim();
+      // Strip UTF-8 BOM if present
+      const header = lines[0].replace(/^\uFEFF/, '').toLowerCase().trim();
       if (!header.includes('sku') || !header.includes('name') || !header.includes('price')) {
-        return { success: false, message: 'Cabeçalho CSV inválido. Esperado: sku,name,category_id,price,stock' };
+        return { success: false, message: 'Cabeçalho CSV inválido. Esperado: sku,name,category_id,price,stock,unit,description' };
       }
 
       const results = { created: 0, failed: 0, errors: [] as string[] };
@@ -303,7 +304,7 @@ function setupIPC() {
           results.errors.push(`Linha ${i + 1}: colunas insuficientes`);
           continue;
         }
-        const [sku, name, categoryIdStr, priceStr, stockStr] = cols;
+        const [sku, name, categoryIdStr, priceStr, stockStr, unit, description] = cols;
         if (!sku || !name || !priceStr) {
           results.failed++;
           results.errors.push(`Linha ${i + 1}: SKU, nome e preço são obrigatórios`);
@@ -323,7 +324,10 @@ function setupIPC() {
             results.errors.push(`Linha ${i + 1}: estoque inválido`);
             continue;
           }
-          productService.create({ sku, name, category_id: categoryId, price, stock, data: {} });
+          const data: Record<string, any> = {};
+          if (unit) data.unit = unit;
+          if (description) data.description = description;
+          productService.create({ sku, name, category_id: categoryId, price, stock, data });
           results.created++;
         } catch (err: any) {
           results.failed++;
@@ -441,8 +445,8 @@ function setupIPC() {
 
   // Sync (admin-only)
   ipcMain.handle('sync:startServer', async (_event, token: unknown) => {
-    return requireAdmin((_userId) => {
-      const result = syncService.startServer();
+    return requireAdmin(async (_userId) => {
+      const result = await syncService.startServer();
       if (result.token) {
         syncService.saveSyncToken(result.token);
       }

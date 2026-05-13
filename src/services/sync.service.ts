@@ -57,101 +57,107 @@ export class SyncService {
   /**
    * Start sync server (admin only).
    * Only starts if not already running.
+   * Returns a Promise that resolves once the server is actually listening.
    */
-  public startServer(): { success: boolean; isHost: boolean; message: string; token?: string } {
+  public startServer(): Promise<{ success: boolean; isHost: boolean; message: string; token?: string }> {
     if (server) {
-      return { success: true, isHost: true, message: 'Servidor de sincronização já está rodando' };
+      return Promise.resolve({ success: true, isHost: true, message: 'Servidor de sincronização já está rodando' });
     }
 
-    try {
-      // Generate a new sync secret on each server start
-      syncSecret = crypto.randomBytes(32).toString('hex');
+    return new Promise((resolve) => {
+      try {
+        // Generate a new sync secret on each server start
+        syncSecret = crypto.randomBytes(32).toString('hex');
 
-      // Cache the sync token for distribution via /token endpoint
-      const syncToken = generateSyncToken(syncSecret);
+        // Cache the sync token for distribution via /token endpoint
+        const syncToken = generateSyncToken(syncSecret);
 
-      server = http.createServer((req, res) => {
-        const clientIp = getClientIp(req);
+        server = http.createServer((req, res) => {
+          const clientIp = getClientIp(req);
 
-        // Rate limiting
-        if (isRateLimited(clientIp)) {
-          res.writeHead(429, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Muitas requisições. Tente novamente mais tarde.' }));
-          return;
-        }
-
-        // Security headers
-        res.setHeader('X-Content-Type-Options', 'nosniff');
-        res.setHeader('X-Frame-Options', 'DENY');
-
-        // CORS — only allow same-origin / local network, never wildcard in production
-        const origin = req.headers.origin;
-        if (origin) {
-          const allowed = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)/.test(origin);
-          if (allowed) {
-            res.setHeader('Access-Control-Allow-Origin', origin);
-          }
-        }
-        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Authorization');
-
-        if (req.method === 'OPTIONS') {
-          res.writeHead(204);
-          res.end();
-          return;
-        }
-
-        if (req.url === '/sync' && req.method === 'GET') {
-          // Require Authorization: Bearer <token>
-          const authHeader = req.headers['authorization'];
-          if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            log.warn('Sync auth missing', { ip: clientIp });
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Não autenticado' }));
-            return;
-          }
-          const receivedToken = authHeader.slice(7);
-          // Verify lengths match before timingSafeEqual to avoid throws
-          const expectedToken = generateSyncToken(syncSecret);
-          const received = Buffer.from(receivedToken);
-          const expected = Buffer.from(expectedToken);
-          if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
-            log.warn('Sync auth invalid', { ip: clientIp });
-            res.writeHead(403, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Token inválido' }));
+          // Rate limiting
+          if (isRateLimited(clientIp)) {
+            res.writeHead(429, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Muitas requisições. Tente novamente mais tarde.' }));
             return;
           }
 
-          log.info('Sync data requested', { ip: clientIp });
-          const payload = this.getSyncPayload();
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(payload));
-        } else if (req.url === '/ping' && req.method === 'GET') {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ status: 'ok', role: 'admin' }));
-        } else {
-          res.writeHead(404);
-          res.end();
-        }
-      });
+          // Security headers
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          res.setHeader('X-Frame-Options', 'DENY');
 
-      server.on('error', (err: NodeJS.ErrnoException) => {
-        if (err.code === 'EADDRINUSE') {
-          log.warn('Port already in use, another host may exist');
-        }
-        server = null;
-      });
+          // CORS — only allow same-origin / local network, never wildcard in production
+          const origin = req.headers.origin;
+          if (origin) {
+            const allowed = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)/.test(origin);
+            if (allowed) {
+              res.setHeader('Access-Control-Allow-Origin', origin);
+            }
+          }
+          res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Authorization');
 
-      server.listen(SYNC_PORT, '0.0.0.0', () => {
-        log.info('Server started', { port: SYNC_PORT });
-        this.saveHostState(true);
-      });
+          if (req.method === 'OPTIONS') {
+            res.writeHead(204);
+            res.end();
+            return;
+          }
 
-      return { success: true, isHost: true, message: `Servidor de sincronização iniciado na porta ${SYNC_PORT}`, token: syncToken };
-    } catch (error) {
-      log.error('Failed to start server', { error: String(error) });
-      return { success: false, isHost: true, message: 'Erro ao iniciar servidor de sincronização' };
-    }
+          if (req.url === '/sync' && req.method === 'GET') {
+            // Require Authorization: Bearer <token>
+            const authHeader = req.headers['authorization'];
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+              log.warn('Sync auth missing', { ip: clientIp });
+              res.writeHead(401, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Não autenticado' }));
+              return;
+            }
+            const receivedToken = authHeader.slice(7);
+            // Verify lengths match before timingSafeEqual to avoid throws
+            const expectedToken = generateSyncToken(syncSecret);
+            const received = Buffer.from(receivedToken);
+            const expected = Buffer.from(expectedToken);
+            if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
+              log.warn('Sync auth invalid', { ip: clientIp });
+              res.writeHead(403, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Token inválido' }));
+              return;
+            }
+
+            log.info('Sync data requested', { ip: clientIp });
+            const payload = this.getSyncPayload();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(payload));
+          } else if (req.url === '/ping' && req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'ok', role: 'admin' }));
+          } else {
+            res.writeHead(404);
+            res.end();
+          }
+        });
+
+        server.on('error', (err: NodeJS.ErrnoException) => {
+          if (err.code === 'EADDRINUSE') {
+            log.warn('Port already in use, another host may exist');
+            resolve({ success: false, isHost: true, message: `Porta ${SYNC_PORT} já está em uso` });
+          } else {
+            log.error('Server error', { error: String(err) });
+            resolve({ success: false, isHost: true, message: 'Erro ao iniciar servidor de sincronização' });
+          }
+          server = null;
+        });
+
+        server.listen(SYNC_PORT, '0.0.0.0', () => {
+          log.info('Server started', { port: SYNC_PORT });
+          this.saveHostState(true);
+          resolve({ success: true, isHost: true, message: `Servidor de sincronização iniciado na porta ${SYNC_PORT}`, token: syncToken });
+        });
+      } catch (error) {
+        log.error('Failed to start server', { error: String(error) });
+        resolve({ success: false, isHost: true, message: 'Erro ao iniciar servidor de sincronização' });
+      }
+    });
   }
 
   /**
@@ -400,9 +406,11 @@ export class SyncService {
             db.prepare('UPDATE admin_users SET username = ?, role = ? WHERE id = ?')
               .run(u.username, u.role, u.id);
           } else {
-            // New user from host (should not have password_hash, but leave it null)
-            db.prepare('INSERT OR IGNORE INTO admin_users (id, username, role, created_at) VALUES (?, ?, ?, ?)')
-              .run(u.id, u.username, u.role, u.created_at);
+            // New user from host — generate a random placeholder password hash
+            // The user must reset their password locally
+            const placeholderHash = crypto.randomBytes(32).toString('hex');
+            db.prepare('INSERT OR IGNORE INTO admin_users (id, username, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)')
+              .run(u.id, u.username, placeholderHash, u.role, u.created_at);
           }
         }
       }

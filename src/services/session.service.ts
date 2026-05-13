@@ -59,7 +59,7 @@ export class SessionManager {
 
     const session = this.db.prepare(`
       SELECT * FROM sessions
-      WHERE token = ? AND expires_at > datetime('now')
+      WHERE token = ? AND datetime(expires_at) > datetime('now')
     `).get(token) as Session | undefined;
 
     if (!session) {
@@ -90,7 +90,7 @@ export class SessionManager {
    */
   public cleanup(): number {
     const result = this.db.prepare(`
-      DELETE FROM sessions WHERE expires_at <= datetime('now')
+      DELETE FROM sessions WHERE datetime(expires_at) <= datetime('now')
     `).run();
     return result.changes;
   }
@@ -101,7 +101,7 @@ export class SessionManager {
   public getActiveSessionCount(userId: number): number {
     const result = this.db.prepare(`
       SELECT COUNT(*) as count FROM sessions
-      WHERE user_id = ? AND expires_at > datetime('now')
+      WHERE user_id = ? AND datetime(expires_at) > datetime('now')
     `).get(userId) as { count: number };
     return result.count;
   }

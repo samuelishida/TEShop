@@ -72,3 +72,45 @@
 - The existing HTML structure lacks buttons for adding products and modals for product creation and CSV import.
 - The implementation will include CSS for modals and backend handling for CSV import.
 - **CORRECTION**: WRONG: The assistant did not mention the need for a CSV template download. RIGHT: Ensure to provide a template for CSV import along with user instructions.
+
+## bug-fixes-2026-05-13 (2026-05-13)
+## Bug Fixes Applied (2026-05-13)
+
+### 1. Session expiry datetime format mismatch
+**Files:** `src/services/session.service.ts`, `src/database/connection.ts`
+**Problem:** `expires_at` stored as ISO 8601 (`2024-01-15T10:00:00.000Z`) but compared with `datetime('now')` which outputs `2024-01-15 07:00:00`. Lexicographic comparison at position 10 compares `'T'` (84) vs `' '` (32), making `'T' > ' '` always true for same-date strings.
+**Fix:** Wrapped `expires_at` with `datetime()` in all SQL comparisons:
+- `expires_at > datetime('now')` → `datetime(expires_at) > datetime('now')`
+- `expires_at <= datetime('now')` → `datetime(expires_at) <= datetime('now')`
+
+### 2. Sync fails to insert users due to NOT NULL constraint violation
+**File:** `src/services/sync.service.ts:404`
+**Problem:** `INSERT OR IGNORE INTO admin_users (id, username, role, created_at)` omitted `password_hash` which has `NOT NULL` constraint. `INSERT OR IGNORE` only ignores unique-constraint violations, not NOT NULL violations.
+**Fix:** Generate a random placeholder password hash for new synced users and include it in the INSERT:
+```ts
+const placeholderHash = crypto.randomBytes(32).toString('hex');
+db.prepare('INSERT OR IGNORE INTO admin_users (id, username, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)')
+  .run(u.id, u.username, placeholderHash, u.role, u.created_at);
+```
+
+### 3. CSV bulk import ignores `unit` and `description` columns
+**File:** `src/main/main.ts`
+**Problem:** Handler destructured only 5 columns: `const [sku, name, categoryIdStr, priceStr, stockStr] = cols;` but template promised 7 columns.
+**Fix:** Extended destructuring to include `unit` and `description`, and populated the `data` object with these values when present.
+
+### 4. CSV import fails on UTF-8 BOM
+**File:** `src/main/main.ts`
+**Problem:** `lines[0].toLowerCase().trim()` did not strip a leading UTF-8 BOM (`\uFEFF`). Excel exports include this invisible prefix.
+**Fix:** Added BOM stripping before header validation:
+```ts
+const header = lines[0].replace(/^\uFEFF/, '').toLowerCase().trim();
+```
+
+### 5. Sync server start reports success before actually listening
+**File:** `src/services/sync.service.ts`
+**Problem:** `startServer()` returned `{ success: true, ... }` immediately after calling `server.listen()`, before the `'listening'` event fired. If the port was in use or binding failed, the caller would still receive a success response.
+**Fix:** Converted `startServer()` to return a `Promise` that only resolves inside the `server.listen()` callback (success) or `server.on('error')` handler (failure). Updated callers in `src/main/main.ts` to `await` the result.
+
+### Verification
+- All modified files pass VS Code TypeScript diagnostics (no errors).
+- Terminal execution is currently unavailable in this environment, but code changes are syntactically correct and type-safe.

@@ -60,7 +60,7 @@ export async function runMigrations(): Promise<void> {
 
   // Purge expired sessions on startup to keep the sessions table clean
   try {
-    const deleted = db.prepare("DELETE FROM sessions WHERE expires_at <= datetime('now')").run();
+    const deleted = db.prepare("DELETE FROM sessions WHERE datetime(expires_at) <= datetime('now')").run();
     if (deleted.changes > 0) {
       log.info('Expired sessions cleaned', { count: deleted.changes });
     }
