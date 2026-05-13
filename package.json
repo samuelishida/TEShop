@@ -51,15 +51,24 @@
     "asarUnpack": [
       "node_modules/better-sqlite3/**/*"
     ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "E-Shop PDV"
+    },
     "linux": {
       "target": [
         "AppImage",
         "deb"
       ],
-      "category": "Office"
-    },
-    "win": {
-      "target": "nsis"
+      "category": "Office",
+      "icon": "assets/icon.png"
     }
   }
 }

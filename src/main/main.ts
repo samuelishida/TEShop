@@ -107,6 +107,23 @@ function requireAuth<T>(handler: (userId: number) => T): (token: unknown, ...res
   };
 }
 
+function requireAdmin<T>(handler: (userId: number) => T): (token: unknown, ...rest: unknown[]) => T {
+  return (token: unknown, ..._rest: unknown[]) => {
+    if (typeof token !== 'string' || !token) {
+      throw new Error('Não autenticado');
+    }
+    const result = authService.validateToken(token);
+    if (!result.valid || !result.userId) {
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+    const user = authService.listUsers().find((u) => u.id === result.userId);
+    if (!user || user.role !== 'admin') {
+      throw new Error('Permissão negada. Requer privilégios de administrador.');
+    }
+    return safeHandler(() => handler(result.userId!));
+  };
+}
+
 const authService = new AuthService();
 
 function setupIPC() {
@@ -156,21 +173,21 @@ function setupIPC() {
     return authService.validateToken(token);
   });
 
-  ipcMain.handle('auth:resetAdmin', async () => {
-    return safeHandler(() => authService.resetAdminUser());
+  ipcMain.handle('auth:resetAdmin', async (_event, token: unknown) => {
+    return requireAdmin((_userId) => authService.resetAdminUser())(token);
   });
 
-  // --- Protected handlers (requireAuth) ---
+  // --- Protected handlers (requireAdmin / requireAuth) ---
 
   ipcMain.handle('auth:createCashier', async (_event, token: unknown, username: unknown, password: unknown) => {
-    return requireAuth((_userId) => {
+    return requireAdmin((_userId) => {
       const data = validate(CreateCashierSchema, { username, password }, 'auth:createCashier');
       return authService.createCashierUser(data.username, data.password);
     })(token, username, password);
   });
 
   ipcMain.handle('auth:createUser', async (_event, token: unknown, username: unknown, password: unknown, role: unknown) => {
-    return requireAuth((_userId) => {
+    return requireAdmin((_userId) => {
       const data = validate(CreateUserSchema, { username, password, role }, 'auth:createUser');
       return authService.createUser(data.username, data.password, data.role);
     })(token, username, password, role);
@@ -184,11 +201,11 @@ function setupIPC() {
   });
 
   ipcMain.handle('auth:listUsers', async (_event, token: unknown) => {
-    return requireAuth((_userId) => authService.listUsers())(token);
+    return requireAdmin((_userId) => authService.listUsers())(token);
   });
 
   ipcMain.handle('auth:deleteUser', async (_event, token: unknown, userId: unknown) => {
-    return requireAuth((_userId) => {
+    return requireAdmin((_userId) => {
       const data = validate(IdSchema, { id: userId }, 'auth:deleteUser');
       return authService.deleteUser(data.id);
     })(token, userId);
@@ -262,7 +279,7 @@ function setupIPC() {
   });
 
   ipcMain.handle('product:bulkCreate', async (_event, token: unknown, csvData: unknown) => {
-    return requireAuth((_userId) => {
+    return requireAdmin((_userId) => {
       if (typeof csvData !== 'string' || !csvData.trim()) {
         return { success: false, message: 'CSV vazio ou inválido' };
       }
@@ -422,9 +439,9 @@ function setupIPC() {
     })(token, id);
   });
 
-  // Sync (protected)
+  // Sync (admin-only)
   ipcMain.handle('sync:startServer', async (_event, token: unknown) => {
-    return requireAuth((_userId) => {
+    return requireAdmin((_userId) => {
       const result = syncService.startServer();
       if (result.token) {
         syncService.saveSyncToken(result.token);
@@ -434,7 +451,7 @@ function setupIPC() {
   });
 
   ipcMain.handle('sync:stopServer', async (_event, token: unknown) => {
-    return requireAuth((_userId) => {
+    return requireAdmin((_userId) => {
       syncService.stopServer();
       return { success: true, message: 'Servidor de sincronização encerrado' };
     })(token);
@@ -476,7 +493,7 @@ function setupIPC() {
   });
 
   ipcMain.handle('sync:saveHostAddress', async (_event, token: unknown, address: unknown) => {
-    return requireAuth((_userId) => {
+    return requireAdmin((_userId) => {
       if (typeof address !== 'string' || !address.trim()) {
         return { success: false, message: 'Endereço inválido' };
       }

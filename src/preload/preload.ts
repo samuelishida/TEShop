@@ -11,7 +11,8 @@ try {
       ipcRenderer.invoke('auth:login', credentials),
     logout: (token: string) => ipcRenderer.invoke('auth:logout', token),
     validateToken: (token: string) => ipcRenderer.invoke('auth:validate', token),
-    resetAdminUser: () => ipcRenderer.invoke('auth:resetAdmin'),
+    // Auth (admin only — token required)
+    resetAdminUser: (token: string) => ipcRenderer.invoke('auth:resetAdmin', token),
 
     // Auth (protected — token required)
     createCashierUser: (token: string, username: string, password: string) =>

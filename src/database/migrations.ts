@@ -135,6 +135,20 @@ export const migrations: Migration[] = [
     version: 4,
     name: 'add_foreign_keys_and_remove_redundant_items',
     up(db) {
+      // Add status column to sales for cancellation support (must happen before sale_items_new FK)
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS sales_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          total REAL NOT NULL,
+          payment_method TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'completed',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      db.exec('INSERT INTO sales_new (id, total, payment_method, status, created_at) SELECT id, total, payment_method, \'completed\', created_at FROM sales');
+      db.exec('DROP TABLE sales');
+      db.exec('ALTER TABLE sales_new RENAME TO sales');
+
       // Add ON DELETE CASCADE to sale_items → sales
       db.exec(`
         CREATE TABLE IF NOT EXISTS sale_items_new (
@@ -191,20 +205,6 @@ export const migrations: Migration[] = [
       db.exec('DROP TABLE sessions');
       db.exec('ALTER TABLE sessions_new RENAME TO sessions');
       db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)');
-
-      // Add status column to sales for cancellation support
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS sales_new (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          total REAL NOT NULL,
-          payment_method TEXT NOT NULL,
-          status TEXT NOT NULL DEFAULT 'completed',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      db.exec('INSERT INTO sales_new (id, total, payment_method, status, created_at) SELECT id, total, payment_method, \'completed\', created_at FROM sales');
-      db.exec('DROP TABLE sales');
-      db.exec('ALTER TABLE sales_new RENAME TO sales');
     },
     down(_db) {
       // Reversal is not supported for safety

@@ -27,23 +27,31 @@ export class SaleService {
 
   public createSale(items: Omit<SaleItem, 'total'>[], paymentMethod: string): Sale | null {
     const transaction = this.db.transaction((items: Omit<SaleItem, 'total'>[]) => {
-      const saleItems: SaleItem[] = [];
-      let total = 0;
-
+      // Aggregate quantities per product for validation
+      const productQuantities = new Map<number, number>();
       for (const item of items) {
-        const product = this.db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id) as any;
+        productQuantities.set(item.product_id, (productQuantities.get(item.product_id) || 0) + item.quantity);
+      }
 
+      // Validate products and aggregated stock
+      const productMap = new Map<number, any>();
+      for (const [productId, totalQuantity] of productQuantities) {
+        const product = this.db.prepare('SELECT * FROM products WHERE id = ?').get(productId) as any;
         if (!product) {
-          throw new Error(`Produto ${item.product_id} não encontrado`);
+          throw new Error(`Produto ${productId} não encontrado`);
         }
+        productMap.set(productId, product);
 
         const productData = typeof product.data === 'string' ? JSON.parse(product.data) : product.data;
         const isService = productData?.unit === 'servico' || productData?.type === 'banho-tosa';
-
-        if (!isService && product.stock < item.quantity) {
-          throw new Error(`Estoque insuficiente para ${product.name}. Disponível: ${product.stock}`);
+        if (!isService && product.stock < totalQuantity) {
+          throw new Error(`Estoque insuficiente para ${product.name}. Disponível: ${product.stock}, necessário: ${totalQuantity}`);
         }
+      }
 
+      const saleItems: SaleItem[] = [];
+      let total = 0;
+      for (const item of items) {
         const itemTotal = item.unit_price * item.quantity;
         saleItems.push({ ...item, total: itemTotal });
         total += itemTotal;
@@ -61,17 +69,22 @@ export class SaleService {
           INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total)
           VALUES (?, ?, ?, ?, ?)
         `).run(saleId, item.product_id, item.quantity, item.unit_price, item.total);
+      }
 
-        const product = this.db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id) as any;
+      // Update stock once per product using aggregated quantity
+      for (const [productId, totalQuantity] of productQuantities) {
+        const product = productMap.get(productId);
         const productData = typeof product.data === 'string' ? JSON.parse(product.data) : product.data;
         const isService = productData?.unit === 'servico' || productData?.type === 'banho-tosa';
-
         if (!isService) {
-          this.db.prepare(`
+          const result = this.db.prepare(`
             UPDATE products
             SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-          `).run(item.quantity, item.product_id);
+            WHERE id = ? AND stock >= ?
+          `).run(totalQuantity, productId, totalQuantity);
+          if (result.changes === 0) {
+            throw new Error(`Estoque insuficiente para ${product.name} (concorrência detectada)`);
+          }
         }
       }
 
@@ -110,6 +123,9 @@ export class SaleService {
       const items = this.db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(saleId) as any[];
       for (const item of items) {
         const product = this.db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id) as any;
+        if (!product) {
+          continue;
+        }
         const productData = typeof product.data === 'string' ? JSON.parse(product.data) : product.data;
         const isService = productData?.unit === 'servico' || productData?.type === 'banho-tosa';
         if (!isService) {

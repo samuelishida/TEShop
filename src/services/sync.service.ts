@@ -101,11 +101,7 @@ export class SyncService {
           return;
         }
 
-        if (req.url === '/token' && req.method === 'GET') {
-          // Public endpoint — cashiers on LAN fetch token before calling /sync
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ token: syncToken }));
-        } else if (req.url === '/sync' && req.method === 'GET') {
+        if (req.url === '/sync' && req.method === 'GET') {
           // Require Authorization: Bearer <token>
           const authHeader = req.headers['authorization'];
           if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -244,23 +240,9 @@ export class SyncService {
    */
   public async pullFromHost(address: string, syncToken?: string): Promise<{ success: boolean; message: string; data?: SyncPayload }> {
     try {
-      // Auto-fetch token from server if not provided (handles cross-machine cashier case)
-      let token = syncToken;
+      const token = syncToken || this.getSyncToken();
       if (!token) {
-        try {
-          const tokenResponse = await fetch(`http://${address}:${SYNC_PORT}/token`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(5000),
-          });
-          if (tokenResponse.ok) {
-            const tokenData = await tokenResponse.json() as { token: string };
-            token = tokenData.token;
-            // Persist for future use
-            this.saveSyncToken(token);
-          }
-        } catch {
-          // Will attempt /sync without token and get a 401 — handled below
-        }
+        return { success: false, message: 'Token de sincronização não configurado' };
       }
 
       const headers: Record<string, string> = {};
