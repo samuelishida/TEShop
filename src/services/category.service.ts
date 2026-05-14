@@ -79,12 +79,11 @@ export class CategoryService {
       values.push(JSON.stringify(updates.config));
     }
 
-    values.push(id);
-
     if (fields.length === 0) {
       return this.findById(id);
     }
 
+    values.push(id);
     const stmt = this.db.prepare(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?`);
     stmt.run(...values);
 

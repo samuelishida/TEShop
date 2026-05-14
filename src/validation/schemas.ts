@@ -58,18 +58,18 @@ export const CategoryUpdateSchema = z.object({
 // --- User Schemas ---
 export const CreateCashierSchema = z.object({
   username: z.string().min(3, 'Mínimo 3 caracteres').max(50, 'Máximo 50 caracteres').regex(/^[a-zA-Z0-9_]+$/, 'Apenas letras, números e underscore'),
-  password: z.string().min(4, 'Mínimo 4 caracteres').max(100, 'Máximo 100 caracteres'),
+  password: z.string().min(8, 'Mínimo 8 caracteres').max(100, 'Máximo 100 caracteres'),
 });
 
 export const CreateUserSchema = z.object({
   username: z.string().min(3, 'Mínimo 3 caracteres').max(50, 'Máximo 50 caracteres').regex(/^[a-zA-Z0-9_]+$/, 'Apenas letras, números e underscore'),
-  password: z.string().min(4, 'Mínimo 4 caracteres').max(100, 'Máximo 100 caracteres'),
+  password: z.string().min(8, 'Mínimo 8 caracteres').max(100, 'Máximo 100 caracteres'),
   role: z.enum(['admin', 'caixa'], { message: 'Função inválida' }),
 });
 
 export const ChangePasswordSchema = z.object({
   oldPassword: z.string().min(1, 'Senha atual é obrigatória'),
-  newPassword: z.string().min(4, 'Mínimo 4 caracteres').max(100, 'Máximo 100 caracteres'),
+  newPassword: z.string().min(8, 'Mínimo 8 caracteres').max(100, 'Máximo 100 caracteres'),
 });
 
 // --- Generic Schemas ---

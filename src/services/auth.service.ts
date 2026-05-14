@@ -107,7 +107,8 @@ export class AuthService {
     const hash = bcrypt.hashSync(newPassword, salt);
 
     this.db.prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?').run(hash, userId);
-    
+    this.sessions.revokeAllForUser(userId);
+
     return { success: true };
   }
 
@@ -140,6 +141,10 @@ export class AuthService {
     this.db.prepare('INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)').run(username, hash, role);
     const roleLabel = role === 'admin' ? 'Administrador' : 'Caixa';
     return { success: true, message: `Usuário '${username}' (${roleLabel}) criado com sucesso` };
+  }
+
+  public getUserRole(userId: number): { role: string } | undefined {
+    return this.db.prepare('SELECT role FROM admin_users WHERE id = ?').get(userId) as { role: string } | undefined;
   }
 
   public listUsers(): Omit<AdminUser, 'password_hash'>[] {

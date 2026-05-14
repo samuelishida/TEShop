@@ -123,8 +123,8 @@ export function createUsersModule(deps) {
           return;
         }
 
-        if (password.length < 4) {
-          deps.Toast.warning('A senha deve ter pelo menos 4 caracteres');
+        if (password.length < 8) {
+          deps.Toast.warning('A senha deve ter pelo menos 8 caracteres');
           return;
         }
 
@@ -169,8 +169,8 @@ export function createUsersModule(deps) {
           return;
         }
 
-        if (newPassword.length < 4) {
-          deps.Toast.warning('A nova senha deve ter pelo menos 4 caracteres');
+        if (newPassword.length < 8) {
+          deps.Toast.warning('A nova senha deve ter pelo menos 8 caracteres');
           return;
         }
 
@@ -186,9 +186,13 @@ export function createUsersModule(deps) {
             newPassword
           );
           if (result.success) {
-            deps.Toast.success('Senha alterada com sucesso');
+            deps.Toast.success('Senha alterada. Faça login novamente.');
             deps.Modal.close('change-password-modal');
             document.getElementById('change-password-form').reset();
+            // Backend revokes all sessions on password change — force re-login
+            try { await window.electronAPI.logout(deps.Session.getToken()); } catch {}
+            deps.Session.clear();
+            window.location.reload();
           } else {
             deps.Toast.error(result.message || 'Erro ao alterar senha');
           }

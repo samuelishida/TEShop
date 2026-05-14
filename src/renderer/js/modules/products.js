@@ -154,8 +154,8 @@ export function createProductsModule(deps) {
 
       async load() {
         try {
-          const productsResult = await window.electronAPI.findAllProducts(deps.Session.getToken());
-          const categoriesResult = await window.electronAPI.findAllCategories(deps.Session.getToken());
+          const productsResult = await window.electronAPI.findAllProducts(deps.Session.getToken(), { limit: 500 });
+          const categoriesResult = await window.electronAPI.findAllCategories(deps.Session.getToken(), { limit: 500 });
 
           const products = Array.isArray(productsResult) ? productsResult : (productsResult?.data || []);
           const categories = Array.isArray(categoriesResult) ? categoriesResult : (categoriesResult?.data || []);
@@ -213,7 +213,7 @@ export function createProductsModule(deps) {
           priceTd.textContent = deps.Utils.formatCurrency(product.price);
 
           const stockTd = document.createElement('td');
-          const data = typeof product.data === 'string' ? JSON.parse(product.data) : (product.data || {});
+          const data = deps.Utils.safeParseJSON(product.data, {});
           const isService = data?.unit === 'servico';
 
           if (isService) {
@@ -291,7 +291,7 @@ export function createProductsModule(deps) {
           document.getElementById('product-stock').value = String(product.stock);
 
           // Populate unit if in data
-          const data = typeof product.data === 'string' ? JSON.parse(product.data) : (product.data || {});
+          const data = deps.Utils.safeParseJSON(product.data, {});
           if (data.unit) {
             document.getElementById('product-unit').value = data.unit;
           }
@@ -373,7 +373,8 @@ export function createProductsModule(deps) {
               if (el) {
                 let value = el.value;
                 if (field.type === 'number') {
-                  value = parseFloat(value) || null;
+                  value = value === '' ? null : parseFloat(value);
+                  if (Number.isNaN(value)) value = null;
                 }
                 data[field.id] = value;
               }

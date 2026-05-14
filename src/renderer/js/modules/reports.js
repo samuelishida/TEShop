@@ -14,12 +14,18 @@ export function createReportsModule(deps) {
           today.getMonth(),
           today.getDate()
         );
+        const fmtLocal = (d) => {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        };
         const firstDay = new Date(localDate.getFullYear(), localDate.getMonth(), 1);
 
         const startInput = document.getElementById('report-start-date');
         const endInput = document.getElementById('report-end-date');
-        if (startInput && !startInput.value) startInput.value = localDate.toISOString().split('T')[0];
-        if (endInput && !endInput.value) endInput.value = localDate.toISOString().split('T')[0];
+        if (startInput && !startInput.value) startInput.value = fmtLocal(firstDay);
+        if (endInput && !endInput.value) endInput.value = fmtLocal(localDate);
       },
 
       async init() {

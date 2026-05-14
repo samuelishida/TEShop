@@ -401,16 +401,17 @@ export class SyncService {
       {
         for (const u of data.users) {
           const local = db.prepare('SELECT id, password_hash FROM admin_users WHERE id = ?').get(u.id) as { id: number; password_hash: string } | undefined;
+          const safeRole = ['admin', 'caixa'].includes(u.role) ? u.role : 'caixa';
           if (local) {
             // Local password hash is protected — only update role/username if needed
             db.prepare('UPDATE admin_users SET username = ?, role = ? WHERE id = ?')
-              .run(u.username, u.role, u.id);
+              .run(u.username, safeRole, u.id);
           } else {
             // New user from host — generate a random placeholder password hash
             // The user must reset their password locally
             const placeholderHash = crypto.randomBytes(32).toString('hex');
             db.prepare('INSERT OR IGNORE INTO admin_users (id, username, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)')
-              .run(u.id, u.username, placeholderHash, u.role, u.created_at);
+              .run(u.id, u.username, placeholderHash, safeRole, u.created_at);
           }
         }
       }

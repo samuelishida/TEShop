@@ -28,7 +28,7 @@ export function createPOSModule(deps) {
             }
 
             if (query) {
-              const results = await window.electronAPI.searchProducts(deps.Session.getToken(), query);
+              const results = await window.electronAPI.searchProducts(deps.Session.getToken(), query, { limit: 500 });
               this.filteredProducts = Array.isArray(results) ? results : (results?.data || []);
             } else {
               const categoryId = document.getElementById('pos-category-filter')?.value;
@@ -94,7 +94,7 @@ export function createPOSModule(deps) {
       async loadProducts() {
         await this.loadCategories();
         try {
-          const result = await window.electronAPI.findAllProducts(deps.Session.getToken());
+          const result = await window.electronAPI.findAllProducts(deps.Session.getToken(), { limit: 500 });
           const products = Array.isArray(result) ? result : (result?.data || []);
           if (products.length === 0 && result?.error) {
             deps.Toast.error(result.error);

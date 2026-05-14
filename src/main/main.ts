@@ -116,7 +116,7 @@ function requireAdmin<T>(handler: (userId: number) => T): (token: unknown, ...re
     if (!result.valid || !result.userId) {
       throw new Error('Sessão expirada. Faça login novamente.');
     }
-    const user = authService.listUsers().find((u) => u.id === result.userId);
+    const user = authService.getUserRole(result.userId!);
     if (!user || user.role !== 'admin') {
       throw new Error('Permissão negada. Requer privilégios de administrador.');
     }
@@ -293,12 +293,32 @@ function setupIPC() {
         return { success: false, message: 'Cabeçalho CSV inválido. Esperado: sku,name,category_id,price,stock,unit,description' };
       }
 
+      const parseCSVLine = (line: string): string[] => {
+        const cols: string[] = [];
+        let cur = '';
+        let inQuote = false;
+        for (let ci = 0; ci < line.length; ci++) {
+          const ch = line[ci];
+          if (ch === '"') {
+            if (inQuote && line[ci + 1] === '"') { cur += '"'; ci++; }
+            else inQuote = !inQuote;
+          } else if (ch === ',' && !inQuote) {
+            cols.push(cur.trim());
+            cur = '';
+          } else {
+            cur += ch;
+          }
+        }
+        cols.push(cur.trim());
+        return cols;
+      };
+
       const results = { created: 0, failed: 0, errors: [] as string[] };
 
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
-        const cols = line.split(',').map(c => c.trim());
+        const cols = parseCSVLine(line);
         if (cols.length < 4) {
           results.failed++;
           results.errors.push(`Linha ${i + 1}: colunas insuficientes`);

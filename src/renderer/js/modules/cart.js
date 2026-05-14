@@ -9,7 +9,7 @@ export function createCartModule(deps) {
       items: [],
 
       add(product, qty = 1) {
-        const data = typeof product.data === 'string' ? JSON.parse(product.data) : (product.data || {});
+        const data = deps.Utils.safeParseJSON(product.data, {});
         const isService = data?.unit === 'servico' || data?.type === 'banho-tosa';
         const existing = this.items.find(item => item.product.id === product.id);
 
@@ -51,7 +51,7 @@ export function createCartModule(deps) {
           return;
         }
 
-        const data = typeof item.product.data === 'string' ? JSON.parse(item.product.data) : (item.product.data || {});
+        const data = deps.Utils.safeParseJSON(item.product.data, {});
         const isService = data?.unit === 'servico' || data?.type === 'banho-tosa';
         if (!isService && qty > item.product.stock) {
           deps.Toast.warning('Estoque insuficiente!');

@@ -1,0 +1,361 @@
+diff --git a/src/database/connection.ts b/src/database/connection.ts
+index 50f59b5..7e21a4d 100755
+--- a/src/database/connection.ts
++++ b/src/database/connection.ts
+@@ -59,13 +59,9 @@ export async function runMigrations(): Promise<void> {
+   }
+ 
+   // Purge expired sessions on startup to keep the sessions table clean
+-  try {
+-    const deleted = db.prepare("DELETE FROM sessions WHERE datetime(expires_at) <= datetime('now')").run();
+-    if (deleted.changes > 0) {
+-      log.info('Expired sessions cleaned', { count: deleted.changes });
+-    }
+-  } catch {
+-    // Sessions table may not exist yet on first run — migrations handle it
++  const deleted = db.prepare("DELETE FROM sessions WHERE datetime(expires_at) <= datetime('now')").run();
++  if (deleted.changes > 0) {
++    log.info('Expired sessions cleaned', { count: deleted.changes });
+   }
+ 
+   // Seed default admin if no users exist
+diff --git a/src/main/main.ts b/src/main/main.ts
+index 3862823..7eca0bb 100755
+--- a/src/main/main.ts
++++ b/src/main/main.ts
+@@ -116,7 +116,7 @@ function requireAdmin<T>(handler: (userId: number) => T): (token: unknown, ...re
+     if (!result.valid || !result.userId) {
+       throw new Error('Sessão expirada. Faça login novamente.');
+     }
+-    const user = authService.listUsers().find((u) => u.id === result.userId);
++    const user = authService.getUserRole(result.userId!);
+     if (!user || user.role !== 'admin') {
+       throw new Error('Permissão negada. Requer privilégios de administrador.');
+     }
+@@ -293,12 +293,32 @@ function setupIPC() {
+         return { success: false, message: 'Cabeçalho CSV inválido. Esperado: sku,name,category_id,price,stock,unit,description' };
+       }
+ 
++      const parseCSVLine = (line: string): string[] => {
++        const cols: string[] = [];
++        let cur = '';
++        let inQuote = false;
++        for (let ci = 0; ci < line.length; ci++) {
++          const ch = line[ci];
++          if (ch === '"') {
++            if (inQuote && line[ci + 1] === '"') { cur += '"'; ci++; }
++            else inQuote = !inQuote;
++          } else if (ch === ',' && !inQuote) {
++            cols.push(cur.trim());
++            cur = '';
++          } else {
++            cur += ch;
++          }
++        }
++        cols.push(cur.trim());
++        return cols;
++      };
++
+       const results = { created: 0, failed: 0, errors: [] as string[] };
+ 
+       for (let i = 1; i < lines.length; i++) {
+         const line = lines[i].trim();
+         if (!line) continue;
+-        const cols = line.split(',').map(c => c.trim());
++        const cols = parseCSVLine(line);
+         if (cols.length < 4) {
+           results.failed++;
+           results.errors.push(`Linha ${i + 1}: colunas insuficientes`);
+diff --git a/src/renderer/js/modules/cart.js b/src/renderer/js/modules/cart.js
+index 7f6ed4d..ed284df 100644
+--- a/src/renderer/js/modules/cart.js
++++ b/src/renderer/js/modules/cart.js
+@@ -9,7 +9,7 @@ export function createCartModule(deps) {
+       items: [],
+ 
+       add(product, qty = 1) {
+-        const data = typeof product.data === 'string' ? JSON.parse(product.data) : (product.data || {});
++        const data = deps.Utils.safeParseJSON(product.data, {});
+         const isService = data?.unit === 'servico' || data?.type === 'banho-tosa';
+         const existing = this.items.find(item => item.product.id === product.id);
+ 
+@@ -51,7 +51,7 @@ export function createCartModule(deps) {
+           return;
+         }
+ 
+-        const data = typeof item.product.data === 'string' ? JSON.parse(item.product.data) : (item.product.data || {});
++        const data = deps.Utils.safeParseJSON(item.product.data, {});
+         const isService = data?.unit === 'servico' || data?.type === 'banho-tosa';
+         if (!isService && qty > item.product.stock) {
+           deps.Toast.warning('Estoque insuficiente!');
+diff --git a/src/renderer/js/modules/pos.js b/src/renderer/js/modules/pos.js
+index e16b005..ab5c462 100644
+--- a/src/renderer/js/modules/pos.js
++++ b/src/renderer/js/modules/pos.js
+@@ -28,7 +28,7 @@ export function createPOSModule(deps) {
+             }
+ 
+             if (query) {
+-              const results = await window.electronAPI.searchProducts(deps.Session.getToken(), query);
++              const results = await window.electronAPI.searchProducts(deps.Session.getToken(), query, { limit: 500 });
+               this.filteredProducts = Array.isArray(results) ? results : (results?.data || []);
+             } else {
+               const categoryId = document.getElementById('pos-category-filter')?.value;
+@@ -94,7 +94,7 @@ export function createPOSModule(deps) {
+       async loadProducts() {
+         await this.loadCategories();
+         try {
+-          const result = await window.electronAPI.findAllProducts(deps.Session.getToken());
++          const result = await window.electronAPI.findAllProducts(deps.Session.getToken(), { limit: 500 });
+           const products = Array.isArray(result) ? result : (result?.data || []);
+           if (products.length === 0 && result?.error) {
+             deps.Toast.error(result.error);
+diff --git a/src/renderer/js/modules/products.js b/src/renderer/js/modules/products.js
+index e73333e..eddd1ff 100644
+--- a/src/renderer/js/modules/products.js
++++ b/src/renderer/js/modules/products.js
+@@ -154,8 +154,8 @@ export function createProductsModule(deps) {
+ 
+       async load() {
+         try {
+-          const productsResult = await window.electronAPI.findAllProducts(deps.Session.getToken());
+-          const categoriesResult = await window.electronAPI.findAllCategories(deps.Session.getToken());
++          const productsResult = await window.electronAPI.findAllProducts(deps.Session.getToken(), { limit: 500 });
++          const categoriesResult = await window.electronAPI.findAllCategories(deps.Session.getToken(), { limit: 500 });
+ 
+           const products = Array.isArray(productsResult) ? productsResult : (productsResult?.data || []);
+           const categories = Array.isArray(categoriesResult) ? categoriesResult : (categoriesResult?.data || []);
+@@ -213,7 +213,7 @@ export function createProductsModule(deps) {
+           priceTd.textContent = deps.Utils.formatCurrency(product.price);
+ 
+           const stockTd = document.createElement('td');
+-          const data = typeof product.data === 'string' ? JSON.parse(product.data) : (product.data || {});
++          const data = deps.Utils.safeParseJSON(product.data, {});
+           const isService = data?.unit === 'servico';
+ 
+           if (isService) {
+@@ -291,7 +291,7 @@ export function createProductsModule(deps) {
+           document.getElementById('product-stock').value = String(product.stock);
+ 
+           // Populate unit if in data
+-          const data = typeof product.data === 'string' ? JSON.parse(product.data) : (product.data || {});
++          const data = deps.Utils.safeParseJSON(product.data, {});
+           if (data.unit) {
+             document.getElementById('product-unit').value = data.unit;
+           }
+@@ -373,7 +373,8 @@ export function createProductsModule(deps) {
+               if (el) {
+                 let value = el.value;
+                 if (field.type === 'number') {
+-                  value = parseFloat(value) || null;
++                  value = value === '' ? null : parseFloat(value);
++                  if (Number.isNaN(value)) value = null;
+                 }
+                 data[field.id] = value;
+               }
+diff --git a/src/renderer/js/modules/reports.js b/src/renderer/js/modules/reports.js
+index 895a4aa..5858182 100644
+--- a/src/renderer/js/modules/reports.js
++++ b/src/renderer/js/modules/reports.js
+@@ -14,12 +14,18 @@ export function createReportsModule(deps) {
+           today.getMonth(),
+           today.getDate()
+         );
++        const fmtLocal = (d) => {
++          const y = d.getFullYear();
++          const m = String(d.getMonth() + 1).padStart(2, '0');
++          const day = String(d.getDate()).padStart(2, '0');
++          return `${y}-${m}-${day}`;
++        };
+         const firstDay = new Date(localDate.getFullYear(), localDate.getMonth(), 1);
+ 
+         const startInput = document.getElementById('report-start-date');
+         const endInput = document.getElementById('report-end-date');
+-        if (startInput && !startInput.value) startInput.value = localDate.toISOString().split('T')[0];
+-        if (endInput && !endInput.value) endInput.value = localDate.toISOString().split('T')[0];
++        if (startInput && !startInput.value) startInput.value = fmtLocal(firstDay);
++        if (endInput && !endInput.value) endInput.value = fmtLocal(localDate);
+       },
+ 
+       async init() {
+diff --git a/src/renderer/js/modules/users.js b/src/renderer/js/modules/users.js
+index d79df47..a64a067 100644
+--- a/src/renderer/js/modules/users.js
++++ b/src/renderer/js/modules/users.js
+@@ -123,8 +123,8 @@ export function createUsersModule(deps) {
+           return;
+         }
+ 
+-        if (password.length < 4) {
+-          deps.Toast.warning('A senha deve ter pelo menos 4 caracteres');
++        if (password.length < 8) {
++          deps.Toast.warning('A senha deve ter pelo menos 8 caracteres');
+           return;
+         }
+ 
+@@ -169,8 +169,8 @@ export function createUsersModule(deps) {
+           return;
+         }
+ 
+-        if (newPassword.length < 4) {
+-          deps.Toast.warning('A nova senha deve ter pelo menos 4 caracteres');
++        if (newPassword.length < 8) {
++          deps.Toast.warning('A nova senha deve ter pelo menos 8 caracteres');
+           return;
+         }
+ 
+@@ -186,9 +186,13 @@ export function createUsersModule(deps) {
+             newPassword
+           );
+           if (result.success) {
+-            deps.Toast.success('Senha alterada com sucesso');
++            deps.Toast.success('Senha alterada. Faça login novamente.');
+             deps.Modal.close('change-password-modal');
+             document.getElementById('change-password-form').reset();
++            // Backend revokes all sessions on password change — force re-login
++            try { await window.electronAPI.logout(deps.Session.getToken()); } catch {}
++            deps.Session.clear();
++            window.location.reload();
+           } else {
+             deps.Toast.error(result.message || 'Erro ao alterar senha');
+           }
+diff --git a/src/renderer/js/modules/utils.js b/src/renderer/js/modules/utils.js
+index 471d81b..a7af23c 100644
+--- a/src/renderer/js/modules/utils.js
++++ b/src/renderer/js/modules/utils.js
+@@ -24,7 +24,16 @@ export const Utils = {
+   },
+ 
+   getToday() {
+-    return new Date().toISOString().split('T')[0];
++    const d = new Date();
++    const y = d.getFullYear();
++    const m = String(d.getMonth() + 1).padStart(2, '0');
++    const day = String(d.getDate()).padStart(2, '0');
++    return `${y}-${m}-${day}`;
++  },
++
++  safeParseJSON(value, fallback = {}) {
++    if (typeof value !== 'string') return value ?? fallback;
++    try { return JSON.parse(value); } catch { return fallback; }
+   },
+ 
+   debounce(fn, delay = 300) {
+diff --git a/src/services/auth.service.ts b/src/services/auth.service.ts
+index 86582a8..9244aec 100755
+--- a/src/services/auth.service.ts
++++ b/src/services/auth.service.ts
+@@ -107,7 +107,8 @@ export class AuthService {
+     const hash = bcrypt.hashSync(newPassword, salt);
+ 
+     this.db.prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?').run(hash, userId);
+-    
++    this.sessions.revokeAllForUser(userId);
++
+     return { success: true };
+   }
+ 
+@@ -142,6 +143,10 @@ export class AuthService {
+     return { success: true, message: `Usuário '${username}' (${roleLabel}) criado com sucesso` };
+   }
+ 
++  public getUserRole(userId: number): { role: string } | undefined {
++    return this.db.prepare('SELECT role FROM admin_users WHERE id = ?').get(userId) as { role: string } | undefined;
++  }
++
+   public listUsers(): Omit<AdminUser, 'password_hash'>[] {
+     const users = this.db.prepare('SELECT id, username, role, created_at FROM admin_users ORDER BY role, username').all() as Omit<AdminUser, 'password_hash'>[];
+     return users;
+diff --git a/src/services/category.service.ts b/src/services/category.service.ts
+index f675403..ed0e48a 100755
+--- a/src/services/category.service.ts
++++ b/src/services/category.service.ts
+@@ -79,12 +79,11 @@ export class CategoryService {
+       values.push(JSON.stringify(updates.config));
+     }
+ 
+-    values.push(id);
+-
+     if (fields.length === 0) {
+       return this.findById(id);
+     }
+ 
++    values.push(id);
+     const stmt = this.db.prepare(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?`);
+     stmt.run(...values);
+ 
+diff --git a/src/services/sale.service.ts b/src/services/sale.service.ts
+index 2a13f8b..d27806b 100755
+--- a/src/services/sale.service.ts
++++ b/src/services/sale.service.ts
+@@ -210,7 +210,7 @@ export class SaleService {
+     if (startDate && endDate) {
+       // Normalize plain YYYY-MM-DD dates to full datetime so BETWEEN includes all records on the end day
+       start = startDate.length === 10 ? startDate + ' 00:00:00' : startDate;
+-      end = endDate.length === 10 ? endDate + '23:59:59' : endDate;
++      end = endDate.length === 10 ? endDate + ' 23:59:59' : endDate;
+       whereClauses.push('s.created_at BETWEEN ? AND ?');
+       params.push(start, end);
+     }
+diff --git a/src/services/sync.service.ts b/src/services/sync.service.ts
+index e6f3a27..6596ab9 100644
+--- a/src/services/sync.service.ts
++++ b/src/services/sync.service.ts
+@@ -401,16 +401,17 @@ export class SyncService {
+       {
+         for (const u of data.users) {
+           const local = db.prepare('SELECT id, password_hash FROM admin_users WHERE id = ?').get(u.id) as { id: number; password_hash: string } | undefined;
++          const safeRole = ['admin', 'caixa'].includes(u.role) ? u.role : 'caixa';
+           if (local) {
+             // Local password hash is protected — only update role/username if needed
+             db.prepare('UPDATE admin_users SET username = ?, role = ? WHERE id = ?')
+-              .run(u.username, u.role, u.id);
++              .run(u.username, safeRole, u.id);
+           } else {
+             // New user from host — generate a random placeholder password hash
+             // The user must reset their password locally
+             const placeholderHash = crypto.randomBytes(32).toString('hex');
+             db.prepare('INSERT OR IGNORE INTO admin_users (id, username, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)')
+-              .run(u.id, u.username, placeholderHash, u.role, u.created_at);
++              .run(u.id, u.username, placeholderHash, safeRole, u.created_at);
+           }
+         }
+       }
+diff --git a/src/validation/schemas.ts b/src/validation/schemas.ts
+index 3d4fef1..405840b 100644
+--- a/src/validation/schemas.ts
++++ b/src/validation/schemas.ts
+@@ -58,18 +58,18 @@ export const CategoryUpdateSchema = z.object({
+ // --- User Schemas ---
+ export const CreateCashierSchema = z.object({
+   username: z.string().min(3, 'Mínimo 3 caracteres').max(50, 'Máximo 50 caracteres').regex(/^[a-zA-Z0-9_]+$/, 'Apenas letras, números e underscore'),
+-  password: z.string().min(4, 'Mínimo 4 caracteres').max(100, 'Máximo 100 caracteres'),
++  password: z.string().min(8, 'Mínimo 8 caracteres').max(100, 'Máximo 100 caracteres'),
+ });
+ 
+ export const CreateUserSchema = z.object({
+   username: z.string().min(3, 'Mínimo 3 caracteres').max(50, 'Máximo 50 caracteres').regex(/^[a-zA-Z0-9_]+$/, 'Apenas letras, números e underscore'),
+-  password: z.string().min(4, 'Mínimo 4 caracteres').max(100, 'Máximo 100 caracteres'),
++  password: z.string().min(8, 'Mínimo 8 caracteres').max(100, 'Máximo 100 caracteres'),
+   role: z.enum(['admin', 'caixa'], { message: 'Função inválida' }),
+ });
+ 
+ export const ChangePasswordSchema = z.object({
+   oldPassword: z.string().min(1, 'Senha atual é obrigatória'),
+-  newPassword: z.string().min(4, 'Mínimo 4 caracteres').max(100, 'Máximo 100 caracteres'),
++  newPassword: z.string().min(8, 'Mínimo 8 caracteres').max(100, 'Máximo 100 caracteres'),
+ });
+ 
+ // --- Generic Schemas ---
+diff --git a/tests/sale.test.ts b/tests/sale.test.ts
+index 128b6b0..e7b145c 100755
+--- a/tests/sale.test.ts
++++ b/tests/sale.test.ts
+@@ -74,6 +74,7 @@ function createTestDatabase(): Database.Database {
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       username TEXT UNIQUE NOT NULL,
+       password_hash TEXT NOT NULL,
++      role TEXT NOT NULL DEFAULT 'caixa',
+       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+     )
+   `);

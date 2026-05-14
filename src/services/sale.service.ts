@@ -210,7 +210,7 @@ export class SaleService {
     if (startDate && endDate) {
       // Normalize plain YYYY-MM-DD dates to full datetime so BETWEEN includes all records on the end day
       start = startDate.length === 10 ? startDate + ' 00:00:00' : startDate;
-      end = endDate.length === 10 ? endDate + '23:59:59' : endDate;
+      end = endDate.length === 10 ? endDate + ' 23:59:59' : endDate;
       whereClauses.push('s.created_at BETWEEN ? AND ?');
       params.push(start, end);
     }

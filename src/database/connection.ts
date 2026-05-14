@@ -59,13 +59,9 @@ export async function runMigrations(): Promise<void> {
   }
 
   // Purge expired sessions on startup to keep the sessions table clean
-  try {
-    const deleted = db.prepare("DELETE FROM sessions WHERE datetime(expires_at) <= datetime('now')").run();
-    if (deleted.changes > 0) {
-      log.info('Expired sessions cleaned', { count: deleted.changes });
-    }
-  } catch {
-    // Sessions table may not exist yet on first run — migrations handle it
+  const deleted = db.prepare("DELETE FROM sessions WHERE datetime(expires_at) <= datetime('now')").run();
+  if (deleted.changes > 0) {
+    log.info('Expired sessions cleaned', { count: deleted.changes });
   }
 
   // Seed default admin if no users exist
